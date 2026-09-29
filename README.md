@@ -52,8 +52,8 @@ real 3D photos need a trained model and are the hard part.
 
 ## Roadmap
 
-- [ ] M1: Flutter app skeleton, analysis board with manual piece setup
-- [ ] M2: Stockfish integration — eval bar, top 3 lines (MultiPV), depth
+- [x] M1: Flutter app skeleton, analysis board with manual piece setup
+- [x] M2: Stockfish integration — eval bar, top 3 lines (MultiPV), depth
 - [ ] M3: Screenshot import → FEN (2D boards)
 - [ ] M4: Board editor to correct recognition mistakes, side-to-move / castling
 - [ ] M5: Camera capture of real 3D boards → FEN (trained model)
