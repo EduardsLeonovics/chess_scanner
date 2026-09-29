@@ -40,13 +40,13 @@ real 3D photos need a trained model and are the hard part.
 
 ## Setup (Windows)
 
-1. Install Flutter SDK: https://docs.flutter.dev/get-started/install/windows/mobile
+1. Flutter SDK 3.47.5 lives in `%USERPROFILE%\develop\flutter` (on user PATH).
 2. Install Android Studio (Android SDK + emulator), then run `flutter doctor`
-   and fix everything it reports.
-3. Create the app inside this repo:
-   ```
-   flutter create --org com.yourname --platforms android,ios app
-   ```
+   and fix the Android items (the Visual Studio item is only for Windows
+   desktop apps and can be ignored).
+3. The app was created with
+   `flutter create --org com.eduards --project-name chess_scanner --platforms android,ios app`.
+   Run it: `cd app && flutter run`.
 4. **iOS**: building for iPhone requires macOS + Xcode (or a cloud CI such as
    Codemagic / GitHub Actions macOS runners). Develop on Android first.
 
