@@ -392,10 +392,9 @@ packages:
   stockfish:
     dependency: "direct main"
     description:
-      name: stockfish
-      sha256: b27956fa6c21f8637db62411c564d1ba1d0b0e9e27ee928f42a85367da891fa0
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/stockfish"
+      relative: true
+    source: path
     version: "1.8.1"
   stream_channel:
     dependency: transitive
