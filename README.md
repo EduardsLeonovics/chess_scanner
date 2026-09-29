@@ -1,0 +1,65 @@
+# Chess Scanner
+
+Cross-platform (Android + iOS) app: photograph a physical chess board or upload a
+screenshot, get the position recognized automatically, then analyze it with an
+on-device Stockfish engine (eval bar + best lines, like chess.com's analysis board).
+
+## Stack
+
+| Concern              | Choice                                                        |
+|----------------------|---------------------------------------------------------------|
+| App framework        | Flutter (Dart) — one codebase for Android and iOS             |
+| Engine               | `stockfish` pub package (native Stockfish, runs on device)    |
+| Board UI             | `chessground` (Lichess's board widget)                        |
+| Chess rules / FEN    | `dartchess`                                                   |
+| Camera / gallery     | `camera`, `image_picker`                                      |
+| Vision inference     | `tflite_flutter` running models trained in `ml/`              |
+
+## Repository layout
+
+```
+app/        Flutter application (created with `flutter create`, see below)
+ml/         Python: dataset tools + training for board/piece recognition models
+docs/       Design notes
+```
+
+## Recognition pipeline
+
+1. **Board detection** — find the 4 board corners (keypoint model, or classic
+   CV/Hough lines for screenshots).
+2. **Perspective warp** — rectify to a top-down square image.
+3. **Square classification** — split into 64 crops, classify each as one of 13
+   classes (empty + 6 white + 6 black). For 3D photos a piece *detector*
+   (YOLO-style) on the un-warped image, mapped to squares via the homography,
+   handles tall pieces that overlap neighbouring squares much better.
+4. **Build FEN** — user confirms/edits the board, picks side to move, then
+   analysis starts.
+
+Screenshots (2D digital boards) are the easy case and should ship first;
+real 3D photos need a trained model and are the hard part.
+
+## Setup (Windows)
+
+1. Install Flutter SDK: https://docs.flutter.dev/get-started/install/windows/mobile
+2. Install Android Studio (Android SDK + emulator), then run `flutter doctor`
+   and fix everything it reports.
+3. Create the app inside this repo:
+   ```
+   flutter create --org com.yourname --platforms android,ios app
+   ```
+4. **iOS**: building for iPhone requires macOS + Xcode (or a cloud CI such as
+   Codemagic / GitHub Actions macOS runners). Develop on Android first.
+
+## Roadmap
+
+- [ ] M1: Flutter app skeleton, analysis board with manual piece setup
+- [ ] M2: Stockfish integration — eval bar, top 3 lines (MultiPV), depth
+- [ ] M3: Screenshot import → FEN (2D boards)
+- [ ] M4: Board editor to correct recognition mistakes, side-to-move / castling
+- [ ] M5: Camera capture of real 3D boards → FEN (trained model)
+- [ ] M6: Polish: move arrows, game tree, save/share FEN/PGN
+
+## License note
+
+Stockfish is GPLv3. Shipping it inside the app means the app must also be
+distributed under GPLv3 (source available).
