@@ -6,6 +6,10 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of a chess position to analyze it.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick a screenshot of a chess position to analyze it.</string>
 	<key>CFBundleDisplayName</key>
 	<string>Chess Scanner</string>
 	<key>CFBundleExecutable</key>

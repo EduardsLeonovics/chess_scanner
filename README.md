@@ -54,8 +54,8 @@ real 3D photos need a trained model and are the hard part.
 
 - [x] M1: Flutter app skeleton, analysis board with manual piece setup
 - [x] M2: Stockfish integration — eval bar, top 3 lines (MultiPV), depth
-- [ ] M3: Screenshot import → FEN (2D boards)
-- [ ] M4: Board editor to correct recognition mistakes, side-to-move / castling
+- [x] M3: Screenshot import → FEN (2D boards; classic CV + piece-set templates, no model yet)
+- [x] M4: Board editor to correct recognition mistakes, side-to-move / castling
 - [ ] M5: Camera capture of real 3D boards → FEN (trained model)
 - [ ] M6: Polish: move arrows, game tree, save/share FEN/PGN
 

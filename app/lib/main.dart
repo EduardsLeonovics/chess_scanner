@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'src/analysis/analysis_page.dart';
+import 'src/home/home_shell.dart';
+import 'src/settings/appearance.dart';
 
-void main() {
-  runApp(const ProviderScope(child: ChessScannerApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  runApp(ProviderScope(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    child: const ChessScannerApp(),
+  ));
 }
 
 class ChessScannerApp extends StatelessWidget {
@@ -20,7 +27,7 @@ class ChessScannerApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: const AnalysisPage(),
+      home: const HomeShell(),
     );
   }
 }

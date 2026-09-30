@@ -4,20 +4,23 @@ import 'dart:math' as math;
 import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../board/board_setup.dart';
+import '../capture/image_capture.dart';
 import '../engine/engine_service.dart';
 import '../engine/uci.dart';
+import '../recognition/board_recognizer.dart';
+import '../settings/appearance.dart';
+import '../settings/settings_page.dart';
 import 'eval_bar.dart';
 
 /// A position in the move history and the move that led to it.
 class _Ply {
-  const _Ply(this.position, [this.move, this.san]);
+  const _Ply(this.position, [this.move]);
 
   final Position position;
   final Move? move;
-  final String? san;
 }
 
 class AnalysisPage extends ConsumerStatefulWidget {
@@ -40,6 +43,16 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
   int _cursor = 0;
   Side _orientation = Side.white;
   EngineEval? _eval;
+
+  /// Board editing: on while the user fixes a (recognized) position.
+  bool _editing = false;
+  Pieces _editPieces = const {};
+  Side _editTurn = Side.white;
+
+  /// Piece placed by tapping a square while editing; null erases.
+  Piece? _brush = Piece.whitePawn;
+
+  bool _recognizing = false;
 
   Position get _pos => _history[_cursor].position;
 
@@ -83,22 +96,12 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     }
   }
 
-  void _goTo(int index) {
-    if (index < 0 || index >= _history.length || index == _cursor) return;
-    setState(() {
-      _cursor = index;
-      _eval = null;
-    });
-    _controller.updatePosition(_gameData());
-    _analyze();
-  }
-
   void _play(Move move) {
     if (!_pos.isLegal(move)) return;
     final normalized = move is NormalMove ? _pos.normalizeMove(move) : move;
-    final (next, san) = _pos.makeSan(normalized);
+    final next = _pos.play(normalized);
     setState(() {
-      _history = [..._history.take(_cursor + 1), _Ply(next, move, san)];
+      _history = [..._history.take(_cursor + 1), _Ply(next, move)];
       _cursor++;
       _eval = null;
     });
@@ -116,87 +119,227 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     _analyze();
   }
 
-  Future<void> _editFen() async {
-    final position = await showDialog<Position>(
-      context: context,
-      builder: (_) => _FenDialog(initialFen: _pos.fen),
-    );
-    if (position != null) _setPosition(position);
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _scan() async {
+    final bytes = await captureBoardImage(context);
+    if (bytes == null || !mounted) return;
+    setState(() => _recognizing = true);
+    final RecognizedBoard result;
+    try {
+      result = await recognizeBoard(bytes);
+    } on RecognitionException catch (e) {
+      if (mounted) _showMessage(e.message);
+      return;
+    } finally {
+      if (mounted) setState(() => _recognizing = false);
+    }
+    if (!mounted) return;
+
+    _orientation = result.blackAtBottom ? Side.black : Side.white;
+    // White to move unless that's impossible (Black already in check).
+    for (final turn in [Side.white, Side.black]) {
+      try {
+        _setPosition(positionFromBoard(result.board, turn));
+        if (_editing) setState(() => _editing = false);
+        _showMessage('Position loaded. Tap the pencil to fix any wrong pieces.');
+        return;
+      } on PositionSetupException {
+        // Try the other side, then fall back to the editor.
+      }
+    }
+    _startEditing(pieces: {for (final (sq, piece) in result.board.pieces) sq: piece});
+    try {
+      positionFromBoard(result.board, Side.white);
+    } on PositionSetupException catch (e) {
+      _showMessage('${describeSetupError(e)}. Fix the board, then tap ✓.');
+    }
+  }
+
+  void _startEditing({Pieces? pieces}) {
+    _engine.stop();
+    setState(() {
+      _editing = true;
+      _editPieces = pieces ?? {for (final (sq, piece) in _pos.board.pieces) sq: piece};
+      _editTurn = pieces == null ? _pos.turn : Side.white;
+      _eval = null;
+    });
+  }
+
+  void _finishEditing() {
+    var board = Board.empty;
+    for (final MapEntry(key: square, value: piece) in _editPieces.entries) {
+      board = board.setPieceAt(square, piece);
+    }
+    try {
+      final position = positionFromBoard(board, _editTurn);
+      setState(() => _editing = false);
+      _setPosition(position);
+    } on PositionSetupException catch (e) {
+      _showMessage(describeSetupError(e));
+    }
+  }
+
+  void _cancelEditing() {
+    setState(() => _editing = false);
+    _analyze();
+  }
+
+  void _editSquare(Square square) {
+    final brush = _brush;
+    setState(() {
+      _editPieces = {..._editPieces}..remove(square);
+      if (brush != null) _editPieces[square] = brush;
+    });
+  }
+
+  void _setTurn(Side turn) {
+    if (_editing) {
+      setState(() => _editTurn = turn);
+      return;
+    }
+    if (turn == _pos.turn) return;
+    try {
+      _setPosition(withTurn(_pos, turn));
+    } on PositionSetupException catch (e) {
+      _showMessage(describeSetupError(e));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final best = _eval?.best;
+    final best = _editing ? null : _eval?.best;
     final bestMove = best == null ? null : Move.parse(best.pv.first);
+    final appearance = ref.watch(appearanceProvider);
+    final pieceAssets = ref.watch(pieceAssetsProvider).value ?? appearance.pieceSet.assets;
+    final boardSettings = ChessboardSettings(
+      colorScheme: appearance.colorScheme,
+      pieceAssets: pieceAssets,
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Analysis'),
+        leading: IconButton(
+          tooltip: 'Scan a position',
+          icon: const Icon(Icons.photo_camera_outlined),
+          onPressed: _recognizing ? null : _scan,
+        ),
         actions: [
           IconButton(
-            tooltip: 'Flip board',
-            icon: const Icon(Icons.swap_vert),
-            onPressed: () => setState(() => _orientation = _orientation.opposite),
-          ),
-          IconButton(
-            tooltip: 'Set position (FEN)',
-            icon: const Icon(Icons.edit_note),
-            onPressed: _editFen,
-          ),
-          IconButton(
-            tooltip: 'Reset',
-            icon: const Icon(Icons.restart_alt),
-            onPressed: () => _setPosition(Chess.initial),
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.of(context).push(settingsRoute()),
           ),
         ],
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            const barWidth = 18.0;
-            final boardSize = math.min(
-              constraints.maxWidth - barWidth,
-              constraints.maxHeight * 0.62,
-            );
-            return Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const barWidth = 18.0;
+                final boardSize = math.max(
+                  0.0,
+                  math.min(
+                    constraints.maxWidth - barWidth,
+                    constraints.maxHeight * 0.62,
+                  ),
+                );
+                return Column(
                   children: [
-                    EvalBar(
-                      line: best,
-                      height: boardSize,
-                      width: barWidth,
-                      flipped: _orientation == Side.black,
-                    ),
-                    Chessboard(
-                      size: boardSize,
-                      controller: _controller,
-                      orientation: _orientation,
-                      onMove: (move, {viaDragAndDrop}) => _play(move),
-                      shapes: {
-                        if (bestMove is NormalMove)
-                          Arrow(
-                            color: const Color(0xAA15781B),
-                            orig: bestMove.from,
-                            dest: bestMove.to,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        EvalBar(
+                          line: best,
+                          height: boardSize,
+                          width: barWidth,
+                          flipped: _orientation == Side.black,
+                        ),
+                        if (_editing)
+                          ChessboardEditor(
+                            size: boardSize,
+                            orientation: _orientation,
+                            pieces: _editPieces,
+                            pointerMode: EditorPointerMode.edit,
+                            settings: boardSettings,
+                            onEditedSquare: _editSquare,
+                          )
+                        else
+                          Chessboard(
+                            size: boardSize,
+                            controller: _controller,
+                            orientation: _orientation,
+                            settings: boardSettings,
+                            onMove: (move, {viaDragAndDrop}) => _play(move),
+                            shapes: {
+                              if (bestMove is NormalMove)
+                                Arrow(
+                                  color: const Color(0xAA15781B),
+                                  orig: bestMove.from,
+                                  dest: bestMove.to,
+                                ),
+                            },
                           ),
-                      },
+                      ],
+                    ),
+                    if (_editing)
+                      _PiecePalette(
+                        selected: _brush,
+                        pieceAssets: pieceAssets,
+                        onSelect: (piece) => setState(() => _brush = piece),
+                        onClear: () => setState(() => _editPieces = const {}),
+                      ),
+                    _BoardControls(
+                      turn: _editing ? _editTurn : _pos.turn,
+                      onTurn: _setTurn,
+                      side: _orientation,
+                      onSide: (side) => setState(() => _orientation = side),
+                      editing: _editing,
+                      onEdit: _startEditing,
+                      onDone: _finishEditing,
+                      onCancel: _cancelEditing,
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: _editing
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'Pick a piece, then tap squares to place it. '
+                                  'Tap ✓ to analyze.',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          : _buildEnginePanel(),
                     ),
                   ],
+                );
+              },
+            ),
+            if (_recognizing)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x99000000),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Reading the board…'),
+                      ],
+                    ),
+                  ),
                 ),
-                _MoveList(
-                  history: _history,
-                  cursor: _cursor,
-                  onSelect: _goTo,
-                  onBack: () => _goTo(_cursor - 1),
-                  onForward: () => _goTo(_cursor + 1),
-                ),
-                const Divider(height: 1),
-                Expanded(child: _buildEnginePanel()),
-              ],
-            );
-          },
+              ),
+          ],
         ),
       ),
     );
@@ -325,127 +468,176 @@ String pvToSan(Position start, List<String> pv, {int maxMoves = 12}) {
   return out.toString().trimRight();
 }
 
-class _MoveList extends StatelessWidget {
-  const _MoveList({
-    required this.history,
-    required this.cursor,
-    required this.onSelect,
-    required this.onBack,
-    required this.onForward,
+/// "Move" (side to move) and "Side" (board perspective) toggles, plus the
+/// edit / done / cancel buttons.
+class _BoardControls extends StatelessWidget {
+  const _BoardControls({
+    required this.turn,
+    required this.onTurn,
+    required this.side,
+    required this.onSide,
+    required this.editing,
+    required this.onEdit,
+    required this.onDone,
+    required this.onCancel,
   });
 
-  final List<_Ply> history;
-  final int cursor;
-  final ValueChanged<int> onSelect;
-  final VoidCallback onBack;
-  final VoidCallback onForward;
+  final Side turn;
+  final ValueChanged<Side> onTurn;
+  final Side side;
+  final ValueChanged<Side> onSide;
+  final bool editing;
+  final VoidCallback onEdit;
+  final VoidCallback onDone;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.chevron_left),
-          onPressed: cursor > 0 ? onBack : null,
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            reverse: true,
-            child: Row(
-              children: [
-                for (var i = 1; i < history.length; i++)
-                  InkWell(
-                    onTap: () => onSelect(i),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                      child: Text(
-                        _label(i),
-                        style: i == cursor
-                            ? TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
-              ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  _SideToggle(label: 'Move', value: turn, onChanged: onTurn),
+                  const SizedBox(width: 16),
+                  _SideToggle(label: 'Side', value: side, onChanged: onSide),
+                ],
+              ),
             ),
           ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.chevron_right),
-          onPressed: cursor < history.length - 1 ? onForward : null,
+          if (editing) ...[
+            IconButton(
+              tooltip: 'Cancel',
+              icon: const Icon(Icons.close),
+              onPressed: onCancel,
+            ),
+            IconButton.filled(
+              tooltip: 'Done',
+              icon: const Icon(Icons.check),
+              onPressed: onDone,
+            ),
+          ] else
+            IconButton(
+              tooltip: 'Edit board',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: onEdit,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Label: White | Black" as a compact segmented toggle.
+class _SideToggle extends StatelessWidget {
+  const _SideToggle({required this.label, required this.value, required this.onChanged});
+
+  final String label;
+  final Side value;
+  final ValueChanged<Side> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('$label:', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(width: 8),
+        SegmentedButton<Side>(
+          segments: const [
+            ButtonSegment(value: Side.white, label: Text('White')),
+            ButtonSegment(value: Side.black, label: Text('Black')),
+          ],
+          selected: {value},
+          showSelectedIcon: false,
+          style: const ButtonStyle(
+            visualDensity: VisualDensity(horizontal: -4, vertical: -2),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
+          ),
+          onSelectionChanged: (selection) => onChanged(selection.first),
         ),
       ],
     );
   }
-
-  String _label(int i) {
-    final before = history[i - 1].position;
-    final san = history[i].san!;
-    if (before.turn == Side.white) return '${before.fullmoves}. $san';
-    if (i == 1) return '${before.fullmoves}... $san';
-    return san;
-  }
 }
 
-class _FenDialog extends StatefulWidget {
-  const _FenDialog({required this.initialFen});
+/// Pieces to place while editing, an eraser, and a clear-board button.
+class _PiecePalette extends StatelessWidget {
+  const _PiecePalette({
+    required this.selected,
+    required this.pieceAssets,
+    required this.onSelect,
+    required this.onClear,
+  });
 
-  final String initialFen;
+  final Piece? selected;
+  final PieceAssets pieceAssets;
+  final ValueChanged<Piece?> onSelect;
+  final VoidCallback onClear;
 
-  @override
-  State<_FenDialog> createState() => _FenDialogState();
-}
-
-class _FenDialogState extends State<_FenDialog> {
-  late final _text = TextEditingController(text: widget.initialFen);
-  String? _error;
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    try {
-      final position = Chess.fromSetup(Setup.parseFen(_text.text.trim()));
-      Navigator.of(context).pop(position);
-    } catch (e) {
-      setState(() => _error = 'Invalid or illegal position');
-    }
-  }
+  static const _roles = [Role.king, Role.queen, Role.rook, Role.bishop, Role.knight, Role.pawn];
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Position (FEN)'),
-      content: TextField(
-        controller: _text,
-        maxLines: 3,
-        minLines: 1,
-        autofocus: true,
-        decoration: InputDecoration(
-          errorText: _error,
-          suffixIcon: IconButton(
-            tooltip: 'Copy',
-            icon: const Icon(Icons.copy),
-            onPressed: () => Clipboard.setData(ClipboardData(text: _text.text)),
+    final scheme = Theme.of(context).colorScheme;
+    Widget cell({required bool isSelected, required String tooltip, required Widget child, required VoidCallback onTap}) {
+      return Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 40,
+            height: 40,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: isSelected ? scheme.primaryContainer : null,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: child,
           ),
         ),
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('Load')),
-      ],
+      );
+    }
+
+    Widget pieceRow(Side side) => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            for (final role in _roles)
+              cell(
+                isSelected: selected == Piece(color: side, role: role),
+                tooltip: '${side.name} ${role.name}',
+                onTap: () => onSelect(Piece(color: side, role: role)),
+                child: PieceWidget(
+                  piece: Piece(color: side, role: role),
+                  size: 34,
+                  pieceAssets: pieceAssets,
+                ),
+              ),
+            side == Side.white
+                ? cell(
+                    isSelected: selected == null,
+                    tooltip: 'Erase',
+                    onTap: () => onSelect(null),
+                    child: const Icon(Icons.backspace_outlined),
+                  )
+                : cell(
+                    isSelected: false,
+                    tooltip: 'Clear board',
+                    onTap: onClear,
+                    child: const Icon(Icons.delete_outline),
+                  ),
+          ],
+        );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(children: [pieceRow(Side.white), pieceRow(Side.black)]),
     );
   }
 }

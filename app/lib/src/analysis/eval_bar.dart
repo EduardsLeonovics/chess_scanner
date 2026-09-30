@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../engine/uci.dart';
@@ -20,6 +22,8 @@ class EvalBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Layout can briefly offer no room at all; never pass a negative size on.
+    final height = math.max(0.0, this.height);
     return TweenAnimationBuilder<double>(
       tween: Tween(end: line?.whiteShare ?? 0.5),
       duration: const Duration(milliseconds: 300),
