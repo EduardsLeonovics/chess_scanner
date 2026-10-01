@@ -49,6 +49,7 @@ class Appearance {
     this.pieceSet = PieceSet.cburnett,
     this.whitePieces = defaultWhitePieces,
     this.blackPieces = defaultBlackPieces,
+    this.moveSounds = true,
   });
 
   /// [boardThemeId] when the user picked their own square colours.
@@ -67,6 +68,9 @@ class Appearance {
   /// Tint of the black pieces' fill; black leaves them unchanged.
   final Color blackPieces;
 
+  /// Play a sound for every move made on a board.
+  final bool moveSounds;
+
   bool get isCustomBoard => boardThemeId == customThemeId;
 
   ChessboardColorScheme get colorScheme {
@@ -83,6 +87,7 @@ class Appearance {
     PieceSet? pieceSet,
     Color? whitePieces,
     Color? blackPieces,
+    bool? moveSounds,
   }) {
     return Appearance(
       boardThemeId: boardThemeId ?? this.boardThemeId,
@@ -91,6 +96,7 @@ class Appearance {
       pieceSet: pieceSet ?? this.pieceSet,
       whitePieces: whitePieces ?? this.whitePieces,
       blackPieces: blackPieces ?? this.blackPieces,
+      moveSounds: moveSounds ?? this.moveSounds,
     );
   }
 
@@ -100,6 +106,7 @@ class Appearance {
   static const _pieceSetKey = 'appearance.pieceSet';
   static const _whitePiecesKey = 'appearance.whitePieces';
   static const _blackPiecesKey = 'appearance.blackPieces';
+  static const _moveSoundsKey = 'appearance.moveSounds';
 
   factory Appearance.fromPrefs(SharedPreferences prefs) {
     const defaults = Appearance();
@@ -119,6 +126,7 @@ class Appearance {
       ),
       whitePieces: color(_whitePiecesKey) ?? defaults.whitePieces,
       blackPieces: color(_blackPiecesKey) ?? defaults.blackPieces,
+      moveSounds: prefs.getBool(_moveSoundsKey) ?? defaults.moveSounds,
     );
   }
 
@@ -129,6 +137,7 @@ class Appearance {
     await prefs.setString(_pieceSetKey, pieceSet.name);
     await prefs.setInt(_whitePiecesKey, whitePieces.toARGB32());
     await prefs.setInt(_blackPiecesKey, blackPieces.toARGB32());
+    await prefs.setBool(_moveSoundsKey, moveSounds);
   }
 
   @override
@@ -139,11 +148,20 @@ class Appearance {
       other.customDark == customDark &&
       other.pieceSet == pieceSet &&
       other.whitePieces == whitePieces &&
-      other.blackPieces == blackPieces;
+      other.blackPieces == blackPieces &&
+      other.moveSounds == moveSounds;
 
   @override
   int get hashCode =>
-      Object.hash(boardThemeId, customLight, customDark, pieceSet, whitePieces, blackPieces);
+      Object.hash(
+        boardThemeId,
+        customLight,
+        customDark,
+        pieceSet,
+        whitePieces,
+        blackPieces,
+        moveSounds,
+      );
 }
 
 ChessboardColorScheme _solidScheme(Color light, Color dark) {
@@ -195,6 +213,8 @@ class AppearanceNotifier extends Notifier<Appearance> {
 
   void setPieceColors({Color? white, Color? black}) =>
       _update(state.copyWith(whitePieces: white, blackPieces: black));
+
+  void setMoveSounds(bool on) => _update(state.copyWith(moveSounds: on));
 
   void reset() => _update(const Appearance());
 

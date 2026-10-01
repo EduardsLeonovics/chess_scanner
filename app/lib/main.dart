@@ -1,26 +1,45 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'src/app_info.dart';
+import 'src/diagnostics/crash_log.dart';
 import 'src/home/home_shell.dart';
 import 'src/settings/appearance.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  runApp(ProviderScope(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    child: const ChessScannerApp(),
-  ));
+  CrashLog? crashLog;
+  // Errors that escape everything else (async gaps) land in this zone.
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    final prefs = await SharedPreferences.getInstance();
+    crashLog = CrashLog(prefs)..install();
+    LicenseRegistry.addLicense(() => Stream.value(
+          const LicenseEntryWithLineBreaks([AppInfo.name], AppInfo.legalese),
+        ));
+    runApp(ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        crashLogProvider.overrideWithValue(crashLog!),
+      ],
+      child: const ChessGeekApp(),
+    ));
+  }, (error, stack) {
+    crashLog?.record(error, stack, source: 'async');
+    if (kDebugMode) debugPrint('Uncaught: $error\n$stack');
+  });
 }
 
-class ChessScannerApp extends StatelessWidget {
-  const ChessScannerApp({super.key});
+class ChessGeekApp extends StatelessWidget {
+  const ChessGeekApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Chess Scanner',
+      title: AppInfo.name,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF15781B),

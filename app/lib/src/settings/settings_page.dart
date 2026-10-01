@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'accounts_section.dart';
 import 'appearance.dart';
 import 'color_picker.dart';
+import 'data_sections.dart';
 
 /// Slides the settings in from the right, where the gear button is.
 Route<void> settingsRoute() {
@@ -71,6 +73,16 @@ class SettingsPage extends ConsumerWidget {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
             children: [
+              Text(
+                'Accounts',
+                style: light.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: _ink,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const AccountsSection(),
+              const SizedBox(height: 32),
               Text(
                 'Customization',
                 style: light.textTheme.headlineSmall?.copyWith(
@@ -207,14 +219,31 @@ class SettingsPage extends ConsumerWidget {
                   ],
                 ),
               ),
+              _Section(
+                icon: Icons.volume_up_outlined,
+                title: 'Sound',
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Move sounds', style: TextStyle(color: _ink)),
+                  subtitle: const Text('Moves, captures, castling and checks'),
+                  value: appearance.moveSounds,
+                  onChanged: notifier.setMoveSounds,
+                ),
+              ),
               const SizedBox(height: 20),
               Center(
                 child: TextButton.icon(
                   onPressed: appearance == const Appearance() ? null : notifier.reset,
                   icon: const Icon(Icons.restart_alt),
-                  label: const Text('Reset to defaults'),
+                  label: const Text('Reset customization to defaults'),
                 ),
               ),
+              const SettingsHeading('Puzzles'),
+              const PuzzleDataSection(),
+              const SettingsHeading('Crash reports'),
+              const CrashReportsSection(),
+              const SettingsHeading('About'),
+              const AboutSection(),
             ],
           ),
         ),

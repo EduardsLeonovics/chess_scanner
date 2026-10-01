@@ -1,20 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/analysis_page.dart';
+import '../diagnostics/crash_log.dart';
+import '../puzzles/puzzles_page.dart';
 import 'books_icon.dart';
 
 /// The app's top level: four sections switched from a plain bottom bar of
 /// grey icons (camera, puzzles, library, analysis).
-class HomeShell extends StatefulWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
   @override
-  State<HomeShell> createState() => _HomeShellState();
+  ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _offerCrashReport());
+  }
+
+  /// After a crash, asks once whether to send the report.
+  Future<void> _offerCrashReport() async {
+    final log = ref.read(crashLogProvider);
+    if (log.unprompted == 0 || !mounted) return;
+    log.markPrompted();
+    final send = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.bug_report_outlined),
+        title: const Text('Something went wrong'),
+        content: const Text(
+          'ChessGeek ran into a problem last time. Sending the crash report helps '
+          'fix it. You can read it before sending; it contains no personal data '
+          'beyond what\'s in the error itself.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Send report')),
+        ],
+      ),
+    );
+    if (send == true && mounted) await log.share(origin: shareOrigin(context));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +56,8 @@ class _HomeShellState extends State<HomeShell> {
         index: _index,
         children: const [
           AnalysisPage(),
-          // Puzzles, library and analysis come later.
-          _BlankSection(),
+          PuzzlesPage(),
+          // Library and analysis come later.
           _BlankSection(),
           _BlankSection(),
         ],

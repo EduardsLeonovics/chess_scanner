@@ -1,4 +1,5 @@
 import 'package:chess_scanner/main.dart';
+import 'package:chess_scanner/src/diagnostics/crash_log.dart';
 import 'package:chess_scanner/src/settings/appearance.dart';
 import 'package:chess_scanner/src/settings/settings_page.dart';
 import 'package:chessground/chessground.dart';
@@ -12,8 +13,11 @@ Future<SharedPreferences> _pumpApp(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(ProviderScope(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    child: const ChessScannerApp(),
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      crashLogProvider.overrideWithValue(CrashLog(prefs)),
+    ],
+    child: const ChessGeekApp(),
   ));
   await tester.pump();
   return prefs;
@@ -85,6 +89,14 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     expect(find.text('Customization'), findsOneWidget);
+    // Account connect buttons sit above the customization options.
+    final lichess = find.text('Connect to Lichess');
+    expect(lichess, findsOneWidget);
+    expect(find.text('Connect to Chess.com'), findsOneWidget);
+    expect(
+      tester.getTopLeft(lichess).dy,
+      lessThan(tester.getTopLeft(find.text('Customization')).dy),
+    );
     final settingsList = find
         .descendant(of: find.byType(SettingsPage), matching: find.byType(Scrollable))
         .first;
@@ -98,6 +110,8 @@ void main() {
       -100,
       scrollable: settingsList,
     );
+    await tester.ensureVisible(find.bySemanticsLabel('Green'));
+    await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('Green'));
     await tester.pump();
     expect(prefs.getString('appearance.boardTheme'), 'green');

@@ -13,6 +13,7 @@ import '../engine/uci.dart';
 import '../recognition/board_recognizer.dart';
 import '../settings/appearance.dart';
 import '../settings/settings_page.dart';
+import '../sound/move_sounds.dart';
 import 'eval_bar.dart';
 
 /// A position in the move history and the move that led to it.
@@ -54,6 +55,10 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
 
   bool _recognizing = false;
 
+  /// False while another tab is showing; the engine is then left free for
+  /// background work such as puzzle generation.
+  bool _visible = true;
+
   Position get _pos => _history[_cursor].position;
 
   @override
@@ -69,6 +74,20 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
       if (eval.fen == _pos.fen) setState(() => _eval = eval);
     });
     _analyze();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = Visibility.of(context);
+    if (visible == _visible) return;
+    _visible = visible;
+    if (_editing) return;
+    if (visible) {
+      _analyze();
+    } else {
+      _engine.stop();
+    }
   }
 
   @override
@@ -89,7 +108,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
       );
 
   void _analyze() {
-    if (_pos.isGameOver) {
+    if (!_visible || _pos.isGameOver) {
       _engine.stop();
     } else {
       _engine.analyze(_pos.fen);
@@ -99,6 +118,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
   void _play(Move move) {
     if (!_pos.isLegal(move)) return;
     final normalized = move is NormalMove ? _pos.normalizeMove(move) : move;
+    playMoveSound(ref, _pos, normalized);
     final next = _pos.play(normalized);
     setState(() {
       _history = [..._history.take(_cursor + 1), _Ply(next, move)];

@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Downloads the user's games from Lichess / Chess.com for puzzles. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="chess_scanner"
+        android:label="ChessGeek"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
