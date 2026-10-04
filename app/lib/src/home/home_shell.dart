@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,7 @@ import '../diagnostics/crash_log.dart';
 import '../openings/openings_page.dart';
 import '../puzzles/puzzle_store.dart';
 import '../puzzles/puzzles_page.dart';
+import '../share/position_link.dart';
 import '../skills/skills_page.dart';
 import 'books_icon.dart';
 
@@ -18,17 +21,45 @@ class HomeShell extends ConsumerStatefulWidget {
   ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
+/// The tab on screen: 0 analysis, 1 puzzles, 2 openings, 3 skills.
+final homeTabProvider = NotifierProvider<HomeTab, int>(HomeTab.new);
+
+class HomeTab extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void select(int index) => state = index;
+}
+
 class _HomeShellState extends ConsumerState<HomeShell> {
-  int _index = 0;
+  StreamSubscription<Uri>? _links;
 
   @override
   void initState() {
     super.initState();
+    _links = listenForPositionLinks(
+      onLink: (position) {
+        ref.read(homeTabProvider.notifier).select(0);
+        ref.read(pendingPositionProvider.notifier).open(position);
+      },
+      onInvalid: () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('That link doesn\'t contain a valid chess position.')),
+        );
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _offerCrashReport();
       // Finish analyzing games a previous session didn't get through.
       ref.read(puzzleGeneratorProvider.notifier).resume();
     });
+  }
+
+  @override
+  void dispose() {
+    _links?.cancel();
+    super.dispose();
   }
 
   /// After a crash, asks once whether to send the report.
@@ -57,9 +88,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final index = ref.watch(homeTabProvider);
     return Scaffold(
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: const [
           AnalysisPage(),
           PuzzlesPage(),
@@ -68,8 +100,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ],
       ),
       bottomNavigationBar: _NavBar(
-        index: _index,
-        onSelect: (i) => setState(() => _index = i),
+        index: index,
+        onSelect: ref.read(homeTabProvider.notifier).select,
       ),
     );
   }

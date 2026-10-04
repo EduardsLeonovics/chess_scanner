@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:chess_scanner/src/engine/engine_service.dart';
+import 'package:chess_scanner/src/engine/engine_settings.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -89,6 +90,29 @@ void main() {
       expect(processes, hasLength(2));
       engine.dispose();
     });
+  });
+
+  test('live analysis follows the settings, and new threads apply before the next search', () async {
+    final process = _FakeProcess();
+    final engine = EngineService(
+      settings: const EngineSettings(lines: 2, limit: SearchLimit.time, seconds: 5, threads: 1),
+      launcher: () async => process,
+    );
+    await engine.start();
+    engine.analyze(_fen);
+    await Future<void>.delayed(Duration.zero);
+    expect(process.sent, containsAllInOrder(['setoption name MultiPV value 2', 'go movetime 5000']));
+
+    engine.configure(const EngineSettings(lines: 4, limit: SearchLimit.unlimited, threads: 2));
+    await Future<void>.delayed(Duration.zero);
+    final after = process.sent.skip(process.sent.lastIndexOf('go movetime 5000') + 1).toList();
+    expect(after, containsAllInOrder([
+      'setoption name Threads value 2',
+      'setoption name MultiPV value 4',
+      'position fen $_fen',
+      'go infinite',
+    ]));
+    engine.dispose();
   });
 
   test('gives up after too many restarts', () async {

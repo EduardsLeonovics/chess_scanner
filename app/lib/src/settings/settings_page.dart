@@ -230,6 +230,17 @@ class SettingsPage extends ConsumerWidget {
                   onChanged: notifier.setMoveSounds,
                 ),
               ),
+              _Section(
+                icon: Icons.north_east,
+                title: 'Analysis board',
+                child: CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Show best move arrow', style: TextStyle(color: _ink)),
+                  subtitle: const Text('The green arrow for Stockfish\'s top move'),
+                  value: appearance.showBestMoveArrow,
+                  onChanged: (on) => notifier.setShowBestMoveArrow(on ?? true),
+                ),
+              ),
               const SizedBox(height: 20),
               Center(
                 child: TextButton.icon(

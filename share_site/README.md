@@ -1,0 +1,49 @@
+# Share-link site
+
+ChessGeek's "Share position" button makes links like
+`https://eduardsleonovics.github.io/chessgeek/p/?fen=...`. Android opens
+these links straight in the app once it has verified that the site trusts
+the app. Without the app installed, the link shows this page instead: a
+picture of the position, an "Open in ChessGeek" button, and a Google Play
+link.
+
+This folder is the content for the GitHub user site `EduardsLeonovics.github.io`.
+Android only reads `assetlinks.json` from the domain root, so the files
+must go in that repo, not in `chess_scanner`.
+
+## One-time setup
+
+1. **Release key.** Create one and keep it safe, because the Play Store
+   requires the same key for every update:
+   ```
+   keytool -genkey -v -keystore %USERPROFILE%\chessgeek-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias chessgeek
+   ```
+   Then create `app/android/key.properties` (git ignores it):
+   ```
+   storeFile=C:/Users/Eduards/chessgeek-release.jks
+   storePassword=...
+   keyAlias=chessgeek
+   keyPassword=...
+   ```
+2. **Fingerprint.** Get the key's SHA-256 and put it in
+   `.well-known/assetlinks.json`, in place of `REPLACE_WITH_RELEASE_KEY_SHA256`:
+   ```
+   keytool -list -v -keystore %USERPROFILE%\chessgeek-release.jks -alias chessgeek
+   ```
+   Once the app is on Google Play with Play App Signing, also add the
+   *app signing* key's SHA-256 from Play Console › Setup › App signing.
+   Add it as a second entry in the same list.
+3. **Publish.** On GitHub, create the public repo `EduardsLeonovics.github.io`.
+   Copy this folder's contents into it, including `.well-known/` and
+   `.nojekyll` (without `.nojekyll`, GitHub Pages hides `.well-known`), then
+   push. Under Settings › Pages, publish from the `main` branch root.
+4. **Check.** Open
+   `https://eduardsleonovics.github.io/.well-known/assetlinks.json`, then
+   install a release build (`flutter build apk --release`) and run:
+   ```
+   adb shell pm get-app-links com.eduards.chess_scanner
+   ```
+   The domain should show as `verified`.
+
+Until then, links still work through the page's "Open in ChessGeek" button,
+which uses the `chessgeek://` scheme.

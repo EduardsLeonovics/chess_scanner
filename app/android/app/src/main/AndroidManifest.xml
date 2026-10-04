@@ -32,6 +32,21 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Shared positions (lib/src/share/position_link.dart). The https
+                 links are verified through the site's assetlinks.json. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="eduardsleonovics.github.io" android:pathPrefix="/chessgeek/p" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="chessgeek" android:host="position" />
+            </intent-filter>
         </activity>
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"

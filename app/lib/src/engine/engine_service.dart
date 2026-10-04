@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stockfish/stockfish.dart';
 
+import 'engine_settings.dart';
 import 'uci.dart';
 
 enum EngineStatus { starting, ready, unavailable, error }
@@ -23,7 +22,8 @@ class EngineEval {
 }
 
 final engineProvider = Provider<EngineService>((ref) {
-  final engine = EngineService()..start();
+  final engine = EngineService(settings: ref.read(engineSettingsProvider))..start();
+  ref.listen(engineSettingsProvider, (_, settings) => engine.configure(settings));
   ref.onDispose(engine.dispose);
   return engine;
 });
@@ -67,6 +67,7 @@ class _Search {
     this.depth,
     this.nodes,
     this.movetime,
+    this.infinite = false,
     this.completer,
     this.urgent = false,
   });
@@ -76,6 +77,9 @@ class _Search {
   final int? depth;
   final int? nodes;
   final int? movetime;
+
+  /// Runs until stopped.
+  final bool infinite;
   final Completer<EngineEval>? completer;
 
   /// Someone is waiting on screen: runs before, and interrupts, other
@@ -99,15 +103,18 @@ class _Search {
 /// [stallTimeout] it is asked to stop, and then treated as dead.
 class EngineService {
   EngineService({
-    this.multiPv = 3,
-    this.depth = 24,
+    this._settings = const EngineSettings(),
     EngineLauncher? launcher,
     this.stallTimeout = const Duration(seconds: 30),
   })  : _launcher = launcher,
         _checkPlatform = launcher == null;
 
-  final int multiPv;
-  final int depth;
+  /// Live analysis settings, and the engine's threads and hash.
+  EngineSettings get settings => _settings;
+  EngineSettings _settings;
+
+  /// Threads/Hash to send before the next search (the engine must be idle).
+  bool _optionsChanged = false;
   final Duration stallTimeout;
   final EngineLauncher? _launcher;
   final bool _checkPlatform;
@@ -129,6 +136,9 @@ class EngineService {
   _Search? _current;
   bool _stopping = false;
   _Search? _pendingLive;
+
+  /// The position live analysis was last asked for, until [stop].
+  String? _liveFen;
 
   /// Urgent searches first, then the rest, each in arrival order.
   final _background = <_Search>[];
@@ -156,11 +166,11 @@ class EngineService {
       _process = process;
       _sentMultiPv = null;
       _stdoutSub = process.stdout.listen(_onLine, onDone: () => _onDied('Stockfish exited'));
-      final threads = math.max(1, math.min(4, Platform.numberOfProcessors - 1));
       process.send('uci');
-      process.send('setoption name Threads value $threads');
-      process.send('setoption name Hash value 64');
+      process.send('setoption name Threads value ${_settings.threads}');
+      process.send('setoption name Hash value ${_settings.hashMb}');
       process.send('isready');
+      _optionsChanged = false;
       status.value = EngineStatus.ready;
       _next();
     } catch (e) {
@@ -172,8 +182,27 @@ class EngineService {
     }
   }
 
+  /// Applies new [settings]; live analysis restarts with them.
+  void configure(EngineSettings settings) {
+    final old = _settings;
+    _settings = settings;
+    if (old.threads != settings.threads || old.hashMb != settings.hashMb) _optionsChanged = true;
+    final unchanged = old.copyWith(showLines: settings.showLines) == settings;
+    final fen = _liveFen;
+    if (fen != null && !unchanged) analyze(fen);
+  }
+
+  _Search _liveSearch(String fen) => _Search(
+        fen,
+        multiPv: _settings.lines,
+        depth: _settings.limit == SearchLimit.depth ? _settings.depth : null,
+        movetime: _settings.limit == SearchLimit.time ? _settings.seconds * 1000 : null,
+        infinite: _settings.limit == SearchLimit.unlimited,
+      );
+
   void analyze(String fen) {
-    _pendingLive = _Search(fen, multiPv: multiPv, depth: depth);
+    _liveFen = fen;
+    _pendingLive = _liveSearch(fen);
     if (_current == null) {
       _next();
     } else {
@@ -185,6 +214,7 @@ class EngineService {
   /// evaluations keep running.
   void stop() {
     _pendingLive = null;
+    _liveFen = null;
     if (_current != null && !_current!.isBackground) _stop();
   }
 
@@ -262,6 +292,11 @@ class EngineService {
     _current = search;
     _stopping = false;
     _lines.clear();
+    if (_optionsChanged) {
+      _send('setoption name Threads value ${_settings.threads}');
+      _send('setoption name Hash value ${_settings.hashMb}');
+      _optionsChanged = false;
+    }
     if (_sentMultiPv != search.multiPv) {
       _send('setoption name MultiPV value ${search.multiPv}');
       _sentMultiPv = search.multiPv;
@@ -269,6 +304,7 @@ class EngineService {
     _send('position fen ${search.fen}');
     _send([
       'go',
+      if (search.infinite) 'infinite',
       if (search.depth != null) 'depth ${search.depth}',
       if (search.nodes != null) 'nodes ${search.nodes}',
       if (search.movetime != null) 'movetime ${search.movetime}',

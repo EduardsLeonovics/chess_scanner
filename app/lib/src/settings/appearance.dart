@@ -50,6 +50,7 @@ class Appearance {
     this.whitePieces = defaultWhitePieces,
     this.blackPieces = defaultBlackPieces,
     this.moveSounds = true,
+    this.showBestMoveArrow = true,
   });
 
   /// [boardThemeId] when the user picked their own square colours.
@@ -71,6 +72,9 @@ class Appearance {
   /// Play a sound for every move made on a board.
   final bool moveSounds;
 
+  /// Draw the engine's best move as an arrow on the analysis board.
+  final bool showBestMoveArrow;
+
   bool get isCustomBoard => boardThemeId == customThemeId;
 
   ChessboardColorScheme get colorScheme {
@@ -88,6 +92,7 @@ class Appearance {
     Color? whitePieces,
     Color? blackPieces,
     bool? moveSounds,
+    bool? showBestMoveArrow,
   }) {
     return Appearance(
       boardThemeId: boardThemeId ?? this.boardThemeId,
@@ -97,6 +102,7 @@ class Appearance {
       whitePieces: whitePieces ?? this.whitePieces,
       blackPieces: blackPieces ?? this.blackPieces,
       moveSounds: moveSounds ?? this.moveSounds,
+      showBestMoveArrow: showBestMoveArrow ?? this.showBestMoveArrow,
     );
   }
 
@@ -107,6 +113,7 @@ class Appearance {
   static const _whitePiecesKey = 'appearance.whitePieces';
   static const _blackPiecesKey = 'appearance.blackPieces';
   static const _moveSoundsKey = 'appearance.moveSounds';
+  static const _bestMoveArrowKey = 'appearance.bestMoveArrow';
 
   factory Appearance.fromPrefs(SharedPreferences prefs) {
     const defaults = Appearance();
@@ -127,6 +134,7 @@ class Appearance {
       whitePieces: color(_whitePiecesKey) ?? defaults.whitePieces,
       blackPieces: color(_blackPiecesKey) ?? defaults.blackPieces,
       moveSounds: prefs.getBool(_moveSoundsKey) ?? defaults.moveSounds,
+      showBestMoveArrow: prefs.getBool(_bestMoveArrowKey) ?? defaults.showBestMoveArrow,
     );
   }
 
@@ -138,6 +146,7 @@ class Appearance {
     await prefs.setInt(_whitePiecesKey, whitePieces.toARGB32());
     await prefs.setInt(_blackPiecesKey, blackPieces.toARGB32());
     await prefs.setBool(_moveSoundsKey, moveSounds);
+    await prefs.setBool(_bestMoveArrowKey, showBestMoveArrow);
   }
 
   @override
@@ -149,7 +158,8 @@ class Appearance {
       other.pieceSet == pieceSet &&
       other.whitePieces == whitePieces &&
       other.blackPieces == blackPieces &&
-      other.moveSounds == moveSounds;
+      other.moveSounds == moveSounds &&
+      other.showBestMoveArrow == showBestMoveArrow;
 
   @override
   int get hashCode =>
@@ -161,6 +171,7 @@ class Appearance {
         whitePieces,
         blackPieces,
         moveSounds,
+        showBestMoveArrow,
       );
 }
 
@@ -215,6 +226,8 @@ class AppearanceNotifier extends Notifier<Appearance> {
       _update(state.copyWith(whitePieces: white, blackPieces: black));
 
   void setMoveSounds(bool on) => _update(state.copyWith(moveSounds: on));
+
+  void setShowBestMoveArrow(bool on) => _update(state.copyWith(showBestMoveArrow: on));
 
   void reset() => _update(const Appearance());
 

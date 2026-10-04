@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess position · ChessGeek</title>
+<meta name="description" content="A chess position shared from ChessGeek. Open it in the app to analyze it with Stockfish.">
+<style>
+  :root {
+    --bg: #f6fbfe; --ink: #29313b; --muted: #6b737d;
+    --light: #f0d9b6; --dark: #b58863; --accent: #15781b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16191d; --ink: #e8eaed; --muted: #9aa1aa; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 24px 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  p { margin: 0 0 16px; color: var(--muted); text-align: center; }
+  .board {
+    width: min(92vw, 400px); aspect-ratio: 1; display: grid;
+    grid-template-columns: repeat(8, 1fr); border-radius: 6px; overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.18); margin-bottom: 20px;
+  }
+  .sq { display: flex; align-items: center; justify-content: center;
+        font-size: min(9vw, 44px); line-height: 1; user-select: none; }
+  .l { background: var(--light); } .d { background: var(--dark); }
+  .w { color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000; }
+  .b { color: #111; text-shadow: 0 0 1px #fff; }
+  .buttons { display: flex; flex-direction: column; gap: 10px; width: min(92vw, 400px); }
+  a.btn {
+    display: block; text-align: center; padding: 14px; border-radius: 10px;
+    text-decoration: none; font-weight: 600;
+  }
+  .primary { background: var(--accent); color: #fff; }
+  .secondary { border: 1px solid var(--muted); color: var(--ink); }
+  .error { color: #b3261e; }
+  code { font-size: .8rem; word-break: break-all; color: var(--muted); }
+</style>
+</head>
+<body>
+  <h1 id="title">Chess position</h1>
+  <p id="turn"></p>
+  <div class="board" id="board" aria-label="Chess board"></div>
+  <div class="buttons">
+    <a class="btn primary" id="open" href="#">Open in ChessGeek</a>
+    <a class="btn secondary" id="store" href="#">Get ChessGeek on Google Play</a>
+  </div>
+  <p style="margin-top:16px"><code id="fen"></code></p>
+<script>
+(function () {
+  var PACKAGE = 'com.eduards.chess_scanner';
+  var STORE = 'https://play.google.com/store/apps/details?id=' + PACKAGE;
+  var fen = new URLSearchParams(location.search).get('fen') || '';
+  var placement = fen.split(' ')[0] || '';
+  var rows = placement.split('/');
+  var glyphs = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+  var board = document.getElementById('board');
+
+  if (rows.length !== 8) {
+    document.getElementById('title').textContent = 'No position in this link';
+    document.getElementById('title').className = 'error';
+    board.style.display = 'none';
+  } else {
+    rows.forEach(function (row, r) {
+      var file = 0;
+      for (var i = 0; i < row.length && file < 8; i++) {
+        var c = row[i];
+        if (c >= '1' && c <= '8') {
+          for (var e = 0; e < +c && file < 8; e++) square(r, file++, null);
+        } else {
+          square(r, file++, c);
+        }
+      }
+      while (file < 8) square(r, file++, null);
+    });
+    var turn = fen.split(' ')[1];
+    document.getElementById('turn').textContent =
+      turn === 'b' ? 'Black to move' : 'White to move';
+  }
+  document.getElementById('fen').textContent = fen;
+
+  function square(r, f, c) {
+    var el = document.createElement('div');
+    el.className = 'sq ' + ((r + f) % 2 === 0 ? 'l' : 'd');
+    if (c && glyphs[c.toLowerCase()]) {
+      var span = document.createElement('span');
+      span.textContent = glyphs[c.toLowerCase()];
+      span.className = c === c.toUpperCase() ? 'w' : 'b';
+      el.appendChild(span);
+    }
+    board.appendChild(el);
+  }
+
+  var android = /Android/i.test(navigator.userAgent);
+  var appLink = 'chessgeek://position?fen=' + encodeURIComponent(fen);
+  // Chrome on Android: opens the app if installed, else the Play Store.
+  var intent = 'intent://position?fen=' + encodeURIComponent(fen) +
+    '#Intent;scheme=chessgeek;package=' + PACKAGE +
+    ';S.browser_fallback_url=' + encodeURIComponent(STORE) + ';end';
+  document.getElementById('open').href = android ? intent : appLink;
+  document.getElementById('store').href = STORE;
+})();
+</script>
+</body>
+</html>

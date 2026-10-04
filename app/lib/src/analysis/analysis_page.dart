@@ -5,15 +5,20 @@ import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../board/board_setup.dart';
 import '../capture/image_capture.dart';
+import '../diagnostics/crash_log.dart' show shareOrigin;
 import '../engine/engine_service.dart';
+import '../engine/engine_settings.dart';
 import '../engine/uci.dart';
 import '../recognition/board_recognizer.dart';
 import '../settings/appearance.dart';
 import '../settings/settings_page.dart';
+import '../share/position_link.dart';
 import '../sound/move_sounds.dart';
+import 'engine_settings_sheet.dart';
 import 'eval_bar.dart';
 
 /// A position in the move history and the move that led to it.
@@ -74,6 +79,28 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
       if (eval.fen == _pos.fen) setState(() => _eval = eval);
     });
     _analyze();
+    // A link that arrived before this page was built.
+    final pending = ref.read(pendingPositionProvider);
+    if (pending != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openLinked(pending));
+    }
+  }
+
+  void _openLinked(Position position) {
+    ref.read(pendingPositionProvider.notifier).clear();
+    if (_editing) setState(() => _editing = false);
+    _orientation = position.turn;
+    _setPosition(position);
+    _showMessage('Opened the shared position.');
+  }
+
+  Future<void> _share(BuildContext buttonContext) async {
+    final link = positionLink(_pos.fen);
+    await SharePlus.instance.share(ShareParams(
+      subject: 'Chess position',
+      text: 'Analyze this position in ChessGeek: $link',
+      sharePositionOrigin: shareOrigin(buttonContext),
+    ));
   }
 
   @override
@@ -232,6 +259,9 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(pendingPositionProvider, (_, position) {
+      if (position != null) _openLinked(position);
+    });
     final best = _editing ? null : _eval?.best;
     final bestMove = best == null ? null : Move.parse(best.pv.first);
     final appearance = ref.watch(appearanceProvider);
@@ -297,7 +327,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
                             settings: boardSettings,
                             onMove: (move, {viaDragAndDrop}) => _play(move),
                             shapes: {
-                              if (bestMove is NormalMove)
+                              if (bestMove is NormalMove && appearance.showBestMoveArrow)
                                 Arrow(
                                   color: const Color(0xAA15781B),
                                   orig: bestMove.from,
@@ -323,6 +353,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
                       onEdit: _startEditing,
                       onDone: _finishEditing,
                       onCancel: _cancelEditing,
+                      onShare: _share,
                     ),
                     const Divider(height: 1),
                     Expanded(
@@ -389,17 +420,37 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
         }
 
         final eval = _eval;
+        final settings = ref.watch(engineSettingsProvider);
+        final settingsNotifier = ref.read(engineSettingsProvider.notifier);
         return ListView(
           padding: const EdgeInsets.symmetric(vertical: 4),
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Text(
-                eval == null ? 'Stockfish · thinking…' : 'Stockfish · depth ${eval.depth}',
-                style: theme.textTheme.labelMedium,
+              padding: const EdgeInsets.only(left: 12),
+              child: Row(
+                children: [
+                  Text(
+                    eval == null ? 'Stockfish · thinking…' : 'Stockfish · depth ${eval.depth}',
+                    style: theme.textTheme.labelMedium,
+                  ),
+                  IconButton(
+                    tooltip: 'Engine settings',
+                    iconSize: 18,
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.tune),
+                    onPressed: () => showEngineSettings(context),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: settings.showLines ? 'Hide lines' : 'Show lines',
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(settings.showLines ? Icons.unfold_less : Icons.unfold_more),
+                    onPressed: () => settingsNotifier.set(settings.copyWith(showLines: !settings.showLines)),
+                  ),
+                ],
               ),
             ),
-            if (eval != null)
+            if (eval != null && settings.showLines)
               for (final line in eval.lines)
                 _EngineLineTile(
                   line: line,
@@ -488,8 +539,8 @@ String pvToSan(Position start, List<String> pv, {int maxMoves = 12}) {
   return out.toString().trimRight();
 }
 
-/// "Move" (side to move) and "Side" (board perspective) toggles, plus the
-/// edit / done / cancel buttons.
+/// Share, then "Move" (side to move) and "Side" (board perspective)
+/// toggles, plus the edit / done / cancel buttons.
 class _BoardControls extends StatelessWidget {
   const _BoardControls({
     required this.turn,
@@ -500,6 +551,7 @@ class _BoardControls extends StatelessWidget {
     required this.onEdit,
     required this.onDone,
     required this.onCancel,
+    required this.onShare,
   });
 
   final Side turn;
@@ -511,12 +563,25 @@ class _BoardControls extends StatelessWidget {
   final VoidCallback onDone;
   final VoidCallback onCancel;
 
+  /// Gets the share button's context, to anchor the share sheet.
+  final ValueChanged<BuildContext> onShare;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
       child: Row(
         children: [
+          if (!editing)
+            Builder(
+              builder: (buttonContext) => IconButton(
+                tooltip: 'Share position',
+                icon: const Icon(Icons.share_outlined),
+                onPressed: () => onShare(buttonContext),
+              ),
+            )
+          else
+            const SizedBox(width: 8),
           Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
