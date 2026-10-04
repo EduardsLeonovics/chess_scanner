@@ -115,5 +115,7 @@ flutter_launcher_icons:
   android: "ic_launcher"
   adaptive_icon_background: "#49B0FD"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  # make_icon.py already sizes the board for the adaptive safe zone.
+  adaptive_icon_foreground_inset: 0
   ios: true
   remove_alpha_ios: true
