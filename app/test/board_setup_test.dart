@@ -45,4 +45,28 @@ void main() {
       );
     });
   });
+
+  group('rotateBoard', () {
+    test('moves every piece to the opposite square', () {
+      final board = Board.parseFen('4k3/8/8/8/8/8/4P3/R3K3');
+      // a1 -> h8, e1 -> d8, e2 -> d7, e8 -> d1.
+      expect(rotateBoard(board), Board.parseFen('3K3R/3P4/8/8/8/8/8/3k4'));
+    });
+
+    test('twice gives back the same board', () {
+      final board = Board.parseFen('1r3r2/1pR2N1k/p1b1p1pP/4P2n/8/P7/1P6/1K3R2');
+      expect(rotateBoard(rotateBoard(board)), board);
+    });
+
+    test('turns a starting position read from the wrong side the right way up', () {
+      expect(rotateBoard(rotateBoard(Board.standard)), Board.standard);
+      final upsideDown = Board.parseFen('RNBKQBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbkqbnr');
+      expect(rotateBoard(upsideDown), Board.standard);
+    });
+
+    test('the editor map rotates the same way', () {
+      final pieces = {Square.a1: Piece.whiteRook, Square.e2: Piece.blackPawn};
+      expect(rotatePieces(pieces), {Square.h8: Piece.whiteRook, Square.d7: Piece.blackPawn});
+    });
+  });
 }

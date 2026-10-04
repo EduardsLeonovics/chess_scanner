@@ -58,6 +58,26 @@ void main() {
     expect(_toggle(tester, 0).selected, {Side.white});
   });
 
+  testWidgets('Rotate moves the pieces to the opposite squares, not the view', (tester) async {
+    await _pumpApp(tester);
+
+    String fen() => tester.widget<Chessboard>(find.byType(Chessboard)).controller.game.fen;
+    expect(fen(), startsWith('rnbqkbnr/pppppppp/'));
+    await tester.tap(find.bySemanticsLabel('Rotate board'));
+    await tester.pump();
+    // White's pieces now stand on ranks 7-8, the king on d8.
+    expect(fen(), startsWith('RNBKQBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbkqbnr'));
+    expect(tester.widget<Chessboard>(find.byType(Chessboard)).orientation, Side.white);
+    await tester.tap(find.bySemanticsLabel('Rotate board'));
+    await tester.pump();
+    expect(fen(), startsWith('rnbqkbnr/pppppppp/'));
+  });
+
+  testWidgets('the board controls offer sharing', (tester) async {
+    await _pumpApp(tester);
+    expect(find.byTooltip('Share position'), findsOneWidget);
+  });
+
   testWidgets('edit mode swaps in the board editor and back', (tester) async {
     await _pumpApp(tester);
 

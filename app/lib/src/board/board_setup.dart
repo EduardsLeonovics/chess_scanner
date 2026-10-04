@@ -32,6 +32,22 @@ Position positionFromBoard(Board board, Side turn) {
   );
 }
 
+/// [board] turned half a turn: every piece moves to the square opposite
+/// (a1 to h8, a8 to h1, e2 to d7, …). Fixes a scan read from the wrong
+/// side; unlike flipping the view, the pieces really change squares.
+Board rotateBoard(Board board) {
+  var rotated = Board.empty;
+  for (final (square, piece) in board.pieces) {
+    rotated = rotated.setPieceAt(Square(63 - square), piece);
+  }
+  return rotated;
+}
+
+/// [pieces] (the board editor's map) turned half a turn, see [rotateBoard].
+Map<Square, Piece> rotatePieces(Map<Square, Piece> pieces) => {
+      for (final MapEntry(key: square, value: piece) in pieces.entries) Square(63 - square): piece,
+    };
+
 /// The same position with the other side to move. Throws
 /// [PositionSetupException] if that is not legal (the side that would not be
 /// moving is in check).

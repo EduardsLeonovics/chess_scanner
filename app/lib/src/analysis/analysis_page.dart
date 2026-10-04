@@ -244,6 +244,22 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     });
   }
 
+  /// Turns the pieces half a turn (see [rotateBoard]). If the result isn't
+  /// a legal position, opens it in the editor to be fixed.
+  void _rotate() {
+    if (_editing) {
+      setState(() => _editPieces = rotatePieces(_editPieces));
+      return;
+    }
+    final board = rotateBoard(_pos.board);
+    try {
+      _setPosition(positionFromBoard(board, _pos.turn));
+    } on PositionSetupException catch (e) {
+      _startEditing(pieces: {for (final (sq, piece) in board.pieces) sq: piece});
+      _showMessage('${describeSetupError(e)}. Fix the board, then tap ✓.');
+    }
+  }
+
   void _setTurn(Side turn) {
     if (_editing) {
       setState(() => _editTurn = turn);
@@ -354,6 +370,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
                       onDone: _finishEditing,
                       onCancel: _cancelEditing,
                       onShare: _share,
+                      onRotate: _rotate,
                     ),
                     const Divider(height: 1),
                     Expanded(
@@ -552,6 +569,7 @@ class _BoardControls extends StatelessWidget {
     required this.onDone,
     required this.onCancel,
     required this.onShare,
+    required this.onRotate,
   });
 
   final Side turn;
@@ -565,6 +583,9 @@ class _BoardControls extends StatelessWidget {
 
   /// Gets the share button's context, to anchor the share sheet.
   final ValueChanged<BuildContext> onShare;
+
+  /// Turns the pieces half a turn.
+  final VoidCallback onRotate;
 
   @override
   Widget build(BuildContext context) {
@@ -591,6 +612,8 @@ class _BoardControls extends StatelessWidget {
                   _SideToggle(label: 'Move', value: turn, onChanged: onTurn),
                   const SizedBox(width: 16),
                   _SideToggle(label: 'Side', value: side, onChanged: onSide),
+                  const SizedBox(width: 12),
+                  _RotateSwitch(onRotate: onRotate),
                 ],
               ),
             ),
@@ -647,6 +670,76 @@ class _SideToggle extends StatelessWidget {
           onSelectionChanged: (selection) => onChanged(selection.first),
         ),
       ],
+    );
+  }
+}
+
+/// "Rotate": a small two-light vertical switch. Each tap turns the pieces
+/// half a turn (a-file to h-file, rank 1 to rank 8); the lit half shows
+/// whether the board is as scanned or turned.
+class _RotateSwitch extends StatefulWidget {
+  const _RotateSwitch({required this.onRotate});
+
+  final VoidCallback onRotate;
+
+  @override
+  State<_RotateSwitch> createState() => _RotateSwitchState();
+}
+
+class _RotateSwitchState extends State<_RotateSwitch> {
+  bool _turned = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    Widget light(bool lit, BorderRadius radius) => AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 22,
+          height: 13,
+          decoration: BoxDecoration(
+            color: lit ? scheme.primary : scheme.surfaceContainerHighest,
+            borderRadius: radius,
+          ),
+        );
+    return Semantics(
+      button: true,
+      toggled: _turned,
+      label: 'Rotate board',
+      excludeSemantics: true,
+      child: Tooltip(
+        message: 'Rotate: move every piece to the opposite square',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            setState(() => _turned = !_turned);
+            widget.onRotate();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Row(
+              children: [
+                Text('Rotate', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: scheme.outline),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      light(!_turned, const BorderRadius.vertical(top: Radius.circular(5))),
+                      const SizedBox(height: 2),
+                      light(_turned, const BorderRadius.vertical(bottom: Radius.circular(5))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
