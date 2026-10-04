@@ -17,9 +17,19 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     final prefs = await SharedPreferences.getInstance();
     crashLog = CrashLog(prefs)..install();
-    LicenseRegistry.addLicense(() => Stream.value(
-          const LicenseEntryWithLineBreaks([AppInfo.name], AppInfo.legalese),
-        ));
+    LicenseRegistry.addLicense(() => Stream.fromIterable(const [
+          LicenseEntryWithLineBreaks([AppInfo.name], AppInfo.legalese),
+          LicenseEntryWithLineBreaks(
+            ['Impact Sounds by Kenney'],
+            'Board sounds are built from "Impact Sounds" by Kenney (www.kenney.nl), '
+                'released under Creative Commons Zero (CC0 1.0).',
+          ),
+          LicenseEntryWithLineBreaks(
+            ['lichess-org/chess-openings'],
+            'Opening names and theory from the Lichess chess-openings data set '
+                '(github.com/lichess-org/chess-openings), released under CC0 1.0.',
+          ),
+        ]));
     runApp(ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),

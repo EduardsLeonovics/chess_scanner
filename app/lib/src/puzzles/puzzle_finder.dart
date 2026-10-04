@@ -3,6 +3,8 @@ import 'package:dartchess/dartchess.dart';
 import '../accounts/game_sources.dart';
 import '../engine/engine_service.dart';
 import '../engine/uci.dart';
+import '../skills/opening_book.dart';
+import '../skills/skill_stats.dart';
 import '../sound/move_sounds.dart' show isCapture;
 import 'puzzle.dart';
 
@@ -71,12 +73,32 @@ int? mateFor(PvLine line, Side side) {
   return m > 0 ? m : null;
 }
 
+/// What one game yields: its puzzles and the user's skill measurements
+/// (null if the game was cancelled part-way).
+class GameAnalysis {
+  const GameAnalysis(this.puzzles, this.skills);
+
+  final List<Puzzle> puzzles;
+  final GameSkillStats? skills;
+}
+
 /// Walks [game] with the engine and returns the puzzles it contains.
-///
-/// [isCancelled] is checked between engine calls.
 Future<List<Puzzle>> findPuzzles(
   FetchedGame game,
   Evaluate evaluate, {
+  bool Function()? isCancelled,
+  int skipPlies = PuzzleRules.openingPlies,
+}) async =>
+    (await analyzeGame(game, evaluate, isCancelled: isCancelled, skipPlies: skipPlies)).puzzles;
+
+/// Evaluates every position of [game] once, then derives both its puzzles
+/// and the user's skill measurements from that single pass.
+///
+/// [isCancelled] is checked between engine calls.
+Future<GameAnalysis> analyzeGame(
+  FetchedGame game,
+  Evaluate evaluate, {
+  OpeningBook? book,
   bool Function()? isCancelled,
   int skipPlies = PuzzleRules.openingPlies,
 }) async {
@@ -91,38 +113,52 @@ Future<List<Puzzle>> findPuzzles(
     sans.add(san);
     positions.add(positions.last.play(move));
   }
+  bool cancelled() => isCancelled?.call() ?? false;
+
+  // Pass 1: a quick look at every position (both sides to move), so each of
+  // the user's moves has a score before and after.
+  final scan = List<PvLine?>.filled(positions.length, null);
+  for (var i = skipPlies; i < positions.length; i++) {
+    if (cancelled()) return const GameAnalysis([], null);
+    if (positions[i].isGameOver) continue;
+    final line = (await evaluate(positions[i].fen, nodes: PuzzleRules.scanNodes)).best;
+    if (line != null && line.pv.isNotEmpty) scan[i] = line;
+  }
+
+  int? scoreAfter(int i) {
+    final after = positions[i + 1];
+    if (after.isCheckmate) return after.turn == side ? -_mateScore : _mateScore;
+    if (after.isGameOver) return 0;
+    final line = scan[i + 1];
+    return line == null ? null : scoreOf(line, side);
+  }
 
   final puzzles = <Puzzle>[];
   for (var i = skipPlies; i < moves.length; i++) {
     final before = positions[i];
     if (before.turn != side) continue;
-    if (isCancelled?.call() ?? false) break;
     // A forced move is no puzzle.
     if (before.legalMoves.values.fold(0, (n, dests) => n + dests.size) < 2) continue;
 
-    // Pass 1: a quick look to rule out the vast majority of moves.
-    final quick = (await evaluate(before.fen, nodes: PuzzleRules.scanNodes)).best;
-    if (quick == null) continue;
+    final quick = scan[i];
+    final afterQuick = scoreAfter(i);
+    if (quick == null || afterQuick == null) continue;
     final played = moves[i];
     final quickBest = _parse(before, quick.pv.first);
     if (quickBest == null || quickBest == played) continue;
     final quickMate = mateFor(quick, side);
     final quickScore = scoreOf(quick, side);
     if (quickMate == null && quickScore < PuzzleRules.captureMinScore) continue;
-
-    final after = positions[i + 1];
-    final afterQuick = await _scoreAfter(after, side, evaluate, nodes: PuzzleRules.scanNodes);
-    if (afterQuick == null) continue;
     final promising = quickMate != null
         ? afterQuick < _mateScore - 1000 // user no longer has a forced mate
         : (quickScore >= PuzzleRules.winning && afterQuick <= PuzzleRules.thrownAway + 50) ||
             (isCapture(before, quickBest) && quickScore - afterQuick >= PuzzleRules.captureMinSwing - 50);
     if (!promising) continue;
-    if (isCancelled?.call() ?? false) break;
+    if (cancelled()) return const GameAnalysis([], null);
 
     // Pass 2: confirm with a deeper, two-line search.
     final deep = await evaluate(before.fen, multiPv: 2, depth: PuzzleRules.verifyDepth);
-    final afterScore = await _scoreAfter(after, side, evaluate, depth: PuzzleRules.verifyDepth);
+    final afterScore = await _deepScoreAfter(positions[i + 1], side, evaluate);
     final best = deep.best;
     if (best == null || afterScore == null) continue;
     final second = deep.lines.length > 1 ? deep.lines[1] : null;
@@ -157,7 +193,20 @@ Future<List<Puzzle>> findPuzzles(
       moveNumber: before.fullmoves,
     ));
   }
-  return puzzles;
+
+  final skills = measureGame(
+    playedAt: game.playedAt,
+    speed: game.speed,
+    side: side,
+    positions: positions,
+    moves: moves,
+    scan: scan,
+    scoreOf: scoreOf,
+    afterScore: scoreAfter,
+    mateFor: mateFor,
+    book: game.initialFen == kInitialFEN ? book : null,
+  );
+  return GameAnalysis(puzzles, skills);
 }
 
 /// Applies the puzzle rules to one position. Returns the kind, solution
@@ -211,17 +260,12 @@ Future<List<Puzzle>> findPuzzles(
   return null;
 }
 
-/// The user's score after their move, or null if the engine had nothing.
-Future<int?> _scoreAfter(
-  Position after,
-  Side side,
-  Evaluate evaluate, {
-  int? nodes,
-  int? depth,
-}) async {
+/// The user's score after their move from a deep search, or null if the
+/// engine had nothing.
+Future<int?> _deepScoreAfter(Position after, Side side, Evaluate evaluate) async {
   if (after.isCheckmate) return after.turn == side ? -_mateScore : _mateScore;
   if (after.isGameOver) return 0;
-  final line = (await evaluate(after.fen, nodes: nodes, depth: depth)).best;
+  final line = (await evaluate(after.fen, depth: PuzzleRules.verifyDepth)).best;
   return line == null ? null : scoreOf(line, side);
 }
 
@@ -243,21 +287,10 @@ bool _endsInMate(Position start, List<String> line) {
   return pos.isCheckmate;
 }
 
-const _values = {Role.pawn: 1, Role.knight: 3, Role.bishop: 3, Role.rook: 5, Role.queen: 9};
-
-int _material(Position pos, Side side) {
-  var total = 0;
-  for (final (_, piece) in pos.board.pieces) {
-    final value = _values[piece.role] ?? 0;
-    total += piece.color == side ? value : -value;
-  }
-  return total;
-}
-
 /// Material [side] gains along the first plies of [pv], stopping once the
 /// exchanges are over, so recaptures are accounted for.
 int _materialGain(Position start, List<String> pv, Side side) {
-  final initial = _material(start, side);
+  final initial = materialBalance(start, side);
   var pos = start;
   var result = initial;
   for (final uci in pv.take(6)) {
@@ -265,7 +298,7 @@ int _materialGain(Position start, List<String> pv, Side side) {
     if (move == null) break;
     final capture = isCapture(pos, move);
     pos = pos.play(move);
-    result = _material(pos, side);
+    result = materialBalance(pos, side);
     // After the opponent replies without capturing, the trade is settled.
     if (!capture && pos.turn == side) break;
   }

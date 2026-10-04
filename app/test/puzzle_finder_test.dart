@@ -15,8 +15,8 @@ PvLine line(List<String> pv, {int? cp, int? mate, int multiPv = 1}) =>
 /// An engine that answers from a table of FEN -> lines (White POV).
 Evaluate stubEngine(Map<String, List<PvLine>> table) {
   return (fen, {multiPv = 1, depth, nodes}) async {
-    final lines = table[fen];
-    if (lines == null) throw StateError('No stub for $fen');
+    // Positions the test doesn't care about get no engine opinion.
+    final lines = table[fen] ?? const <PvLine>[];
     return EngineEval(fen: fen, lines: lines.take(multiPv).toList());
   };
 }

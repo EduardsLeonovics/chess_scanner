@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/analysis_page.dart';
 import '../diagnostics/crash_log.dart';
+import '../openings/openings_page.dart';
 import '../puzzles/puzzles_page.dart';
+import '../skills/skills_page.dart';
 import 'books_icon.dart';
 
 /// The app's top level: four sections switched from a plain bottom bar of
-/// grey icons (camera, puzzles, library, analysis).
+/// grey icons with small labels (scan, puzzles, openings, skills).
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
@@ -57,27 +58,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         children: const [
           AnalysisPage(),
           PuzzlesPage(),
-          // Library and analysis come later.
-          _BlankSection(),
-          _BlankSection(),
+          OpeningsPage(),
+          SkillsPage(),
         ],
       ),
       bottomNavigationBar: _NavBar(
         index: _index,
         onSelect: (i) => setState(() => _index = i),
       ),
-    );
-  }
-}
-
-class _BlankSection extends StatelessWidget {
-  const _BlankSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return const AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: ColoredBox(color: Colors.white, child: SizedBox.expand()),
     );
   }
 }
@@ -97,10 +85,10 @@ class _NavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = <(String, Widget Function(Color))>[
-      ('Scan', (c) => Icon(Icons.photo_camera_outlined, color: c, size: 26)),
-      ('Puzzles', (c) => Icon(Icons.extension_outlined, color: c, size: 26)),
-      ('Library', (c) => BooksIcon(color: c, size: 26)),
-      ('Analysis', (c) => Icon(Icons.analytics_outlined, color: c, size: 26)),
+      ('Scan', (c) => Icon(Icons.photo_camera_outlined, color: c, size: 24)),
+      ('Puzzles', (c) => Icon(Icons.extension_outlined, color: c, size: 24)),
+      ('Openings', (c) => BooksIcon(color: c, size: 24)),
+      ('Skills', (c) => Icon(Icons.analytics_outlined, color: c, size: 24)),
     ];
     return Container(
       decoration: const BoxDecoration(
@@ -110,14 +98,12 @@ class _NavBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 60,
+          height: 64,
           child: Row(
             children: [
               for (var i = 0; i < items.length; i++)
                 Expanded(
-                  child: Tooltip(
-                    message: items[i].$1,
-                    child: Semantics(
+                  child: Semantics(
                       button: true,
                       selected: i == index,
                       label: items[i].$1,
@@ -125,22 +111,35 @@ class _NavBar extends StatelessWidget {
                       child: InkResponse(
                         onTap: () => onSelect(i),
                         radius: 32,
-                        child: Center(
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            width: 56,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: i == index ? _selectedFill : _background,
-                              borderRadius: BorderRadius.circular(12),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              width: 52,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                color: i == index ? _selectedFill : _background,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: items[i].$2(i == index ? _selectedIcon : _icon),
                             ),
-                            alignment: Alignment.center,
-                            child: items[i].$2(i == index ? _selectedIcon : _icon),
-                          ),
+                            const SizedBox(height: 3),
+                            Text(
+                              items[i].$1,
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: 11,
+                                height: 1.2,
+                                fontWeight: i == index ? FontWeight.w600 : FontWeight.w500,
+                                color: i == index ? _selectedIcon : _icon,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
                 ),
             ],
           ),

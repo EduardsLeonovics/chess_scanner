@@ -82,7 +82,7 @@ def rounded_mask(box, radius):
     return m
 
 
-def draw_icon(frame=True):
+def draw_icon(frame=True, board_radius=BOARD_RADIUS):
     """The icon; without [frame] only the board and magnifier, on transparency."""
     # Transparent pixels carry the blue so edges don't fringe dark when resized.
     img = Image.new("RGBA", (S, S), (*BLUE, 255 if frame else 0))
@@ -100,7 +100,7 @@ def draw_icon(frame=True):
                     [x0 + col * sq, y0 + row * sq, x0 + (col + 1) * sq - 1, y0 + (row + 1) * sq - 1],
                     fill=LIGHT,
                 )
-    img.paste(board, (0, 0), rounded_mask([x0, y0, x0 + side - 1, y0 + side - 1], px(BOARD_RADIUS)))
+    img.paste(board, (0, 0), rounded_mask([x0, y0, x0 + side - 1, y0 + side - 1], px(board_radius)))
 
     d = ImageDraw.Draw(img)
     cx, cy = px(LENS_CENTER[0]), px(LENS_CENTER[1])
@@ -142,11 +142,16 @@ def main():
     icon.save(BRANDING / "app_store_icon_1024.png")
     icon.resize((512, 512), Image.LANCZOS).save(BRANDING / "play_store_icon_512.png")
 
-    # Adaptive icon: launchers mask the outer third, so shrink the artwork
-    # until the whole board sits inside the always-visible circle. No frame:
-    # the background layer supplies the blue around it.
+    # Adaptive icon: the layer is 108 units, launchers show the middle 72
+    # (a circle on Pixel). A 60-unit board with extra-round corners (a quarter
+    # of its side) just fits that circle, so the board fills the icon while
+    # all 8x8 squares stay visible. No frame: the background layer is the blue.
+    board_units, layer_units = 60, 108
+    scale = board_units / layer_units / (1 - 2 * MARGIN)
     fg = Image.new("RGBA", (SIZE, SIZE), (*BLUE, 0))
-    small = draw_icon(frame=False).resize((round(SIZE * 0.54),) * 2, Image.LANCZOS)
+    small = draw_icon(frame=False, board_radius=0.25 * (1 - 2 * MARGIN)).resize(
+        (round(SIZE * scale),) * 2, Image.LANCZOS
+    )
     offset = (SIZE - small.width) // 2
     fg.paste(small, (offset, offset))
     fg.save(ICON_DIR / "app_icon_foreground.png")

@@ -70,10 +70,10 @@ void main() {
     expect(find.byType(Chessboard), findsOneWidget);
   });
 
-  testWidgets('other tabs show a blank white screen', (tester) async {
+  testWidgets('the other tabs leave the board', (tester) async {
     await _pumpApp(tester);
 
-    for (final tab in ['Puzzles', 'Library', 'Analysis']) {
+    for (final tab in ['Puzzles', 'Openings', 'Skills']) {
       await tester.tap(find.bySemanticsLabel(tab));
       await tester.pumpAndSettle();
       expect(find.byType(Chessboard, skipOffstage: true), findsNothing);

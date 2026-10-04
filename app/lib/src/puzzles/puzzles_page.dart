@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../accounts/accounts.dart';
 import '../settings/settings_page.dart';
 import 'puzzle.dart';
+import 'generator_banner.dart';
 import 'puzzle_board.dart';
 import 'puzzle_store.dart';
 
@@ -20,17 +21,24 @@ class PuzzlesPage extends ConsumerStatefulWidget {
 class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
   String? _currentId;
 
-  /// The big "load new games" button, offered each time the tab is opened.
+  /// The big "load new games" button, offered when the tab is opened until
+  /// the user closes it or loads; then not again until the app restarts.
   bool _offerLoad = false;
+  bool _declined = false;
   bool _visible = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final visible = Visibility.of(context);
-    if (visible && !_visible) _offerLoad = true;
+    if (visible && !_visible && !_declined) _offerLoad = true;
     _visible = visible;
   }
+
+  void _skip() => setState(() {
+        _offerLoad = false;
+        _declined = true;
+      });
 
   List<Puzzle> _visiblePuzzles(PuzzleLibrary library, Set<PuzzleCategory> categories) => [
         for (final p in library.puzzles)
@@ -63,7 +71,7 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
   }
 
   void _load() {
-    setState(() => _offerLoad = false);
+    _skip();
     ref.read(puzzleGeneratorProvider.notifier).run();
   }
 
@@ -104,7 +112,7 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
       body: SafeArea(
         child: Column(
           children: [
-            if (generator.message != null) _ProgressBanner(state: generator),
+            if (generator.message != null) GeneratorBanner(state: generator),
             Expanded(
               child: Stack(
                 children: [
@@ -135,7 +143,7 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
                     Positioned.fill(
                       child: _LoadOverlay(
                         onLoad: _load,
-                        onSkip: () => setState(() => _offerLoad = false),
+                        onSkip: _skip,
                       ),
                     ),
                 ],
@@ -148,8 +156,8 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
   }
 }
 
-/// The centred magnifying glass shown when the tab opens. Tapping anywhere
-/// else skips it and goes straight to the puzzles.
+/// The centred magnifying glass shown when the tab opens. The X beside it,
+/// or tapping anywhere else, skips it and goes straight to the puzzles.
 class _LoadOverlay extends StatelessWidget {
   const _LoadOverlay({required this.onLoad, required this.onSkip});
 
@@ -168,17 +176,35 @@ class _LoadOverlay extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Semantics(
-                button: true,
-                label: 'Load new games',
-                excludeSemantics: true,
-                child: SizedBox.square(
-                  dimension: 96,
-                  child: IconButton.filled(
-                    onPressed: onLoad,
-                    iconSize: 48,
-                    icon: const Icon(Icons.search),
-                  ),
+              SizedBox.square(
+                dimension: 124,
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Semantics(
+                        button: true,
+                        label: 'Load new games',
+                        excludeSemantics: true,
+                        child: SizedBox.square(
+                          dimension: 96,
+                          child: IconButton.filled(
+                            onPressed: onLoad,
+                            iconSize: 48,
+                            icon: const Icon(Icons.search),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      child: IconButton.filledTonal(
+                        tooltip: 'Not now',
+                        onPressed: onSkip,
+                        icon: const Icon(Icons.close, size: 20),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 14),
@@ -190,65 +216,6 @@ class _LoadOverlay extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The download / analysis line above the board, or how the last run ended.
-class _ProgressBanner extends ConsumerWidget {
-  const _ProgressBanner({required this.state});
-
-  final GeneratorState state;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final generator = ref.read(puzzleGeneratorProvider.notifier);
-    final progress = state.total == 0 ? null : state.done / state.total;
-    return Material(
-      color: state.warning && !state.running
-          ? theme.colorScheme.errorContainer
-          : theme.colorScheme.surfaceContainerHigh,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    [
-                      state.message ?? '',
-                      if (state.running && state.found > 0) '${state.found} found',
-                    ].join(' · '),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: state.warning && !state.running
-                          ? theme.colorScheme.onErrorContainer
-                          : null,
-                    ),
-                  ),
-                ),
-                if (state.running)
-                  TextButton(onPressed: generator.cancel, child: const Text('Stop'))
-                else
-                  IconButton(
-                    tooltip: 'Dismiss',
-                    icon: const Icon(Icons.close),
-                    onPressed: generator.dismiss,
-                  ),
-              ],
-            ),
-            if (state.running) ...[
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.only(right: 12, bottom: 4),
-                child: LinearProgressIndicator(value: progress),
-              ),
-            ],
-          ],
         ),
       ),
     );

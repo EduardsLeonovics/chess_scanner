@@ -12,6 +12,7 @@ const _moves = 'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7';
 String lichessGame(String id, int createdAt, {String variant = 'standard'}) => jsonEncode({
       'id': id,
       'variant': variant,
+      'speed': 'ultraBullet',
       'createdAt': createdAt,
       'moves': _moves,
       'players': {
@@ -30,6 +31,7 @@ Map<String, dynamic> chessComGame(String uuid, int endTime) => {
       'uuid': uuid,
       'url': 'https://www.chess.com/game/live/$uuid',
       'rules': 'chess',
+      'time_class': 'daily',
       'end_time': endTime,
       'pgn': '[Event "Live"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 *',
       'white': {'username': 'Rival', 'rating': 1288},
@@ -64,6 +66,7 @@ void main() {
       expect(batch.older.map((g) => g.id), ['lichess:b', 'lichess:a']);
       expect(batch.older.first.opponent, 'Rival');
       expect(batch.older.first.opponentRating, 1612);
+      expect(batch.older.first.speed, GameSpeed.bullet);
       expect(batch.older.first.userSide, Side.white);
       expect(batch.reachedFirstGame, isTrue, reason: 'Lichess sent fewer games than asked for');
       expect(batch.warning, isNull);
@@ -150,6 +153,7 @@ void main() {
       );
       expect(batch.older.map((g) => g.id), ['chesscom:m2', 'chesscom:m1', 'chesscom:f3']);
       expect(batch.older.first.opponentRating, 1288);
+      expect(batch.older.first.speed, GameSpeed.daily);
       expect(batch.older.first.userSide, Side.black);
       expect(batch.reachedFirstGame, isFalse);
     });

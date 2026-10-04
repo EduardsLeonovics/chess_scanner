@@ -7,6 +7,30 @@ import 'package:http/http.dart' as http;
 
 import 'accounts.dart';
 
+/// How fast a game was played. Lichess's ultraBullet counts as bullet and
+/// its correspondence as daily; Chess.com files classical games under rapid.
+enum GameSpeed {
+  bullet('Bullet'),
+  blitz('Blitz'),
+  rapid('Rapid'),
+  classical('Classical'),
+  daily('Daily');
+
+  const GameSpeed(this.label);
+
+  final String label;
+
+  /// From Lichess's `speed` or Chess.com's `time_class`.
+  static GameSpeed? parse(String? name) => switch (name) {
+        'ultraBullet' || 'bullet' => bullet,
+        'blitz' => blitz,
+        'rapid' => rapid,
+        'classical' => classical,
+        'correspondence' || 'daily' => daily,
+        _ => null,
+      };
+}
+
 /// A finished standard-chess game of the user's, as SAN moves from the
 /// starting position.
 class FetchedGame {
@@ -20,6 +44,7 @@ class FetchedGame {
     required this.playedAt,
     required this.sanMoves,
     this.opponentRating,
+    this.speed,
     this.initialFen = kInitialFEN,
   });
 
@@ -35,6 +60,7 @@ class FetchedGame {
 
   /// The opponent's rating when the game was played.
   final int? opponentRating;
+  final GameSpeed? speed;
   final DateTime playedAt;
   final List<String> sanMoves;
   final String initialFen;
@@ -319,6 +345,7 @@ FetchedGame? _parseLichessGame(Map<String, dynamic> json, String me, String user
     userSide: side,
     opponent: user?['name'] as String? ?? (ai != null ? 'Stockfish level $ai' : 'Anonymous'),
     opponentRating: opponent['rating'] as int?,
+    speed: GameSpeed.parse(json['speed'] as String?),
     // Lichess's since/until filter on the creation time.
     playedAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
     sanMoves: moves,
@@ -426,6 +453,7 @@ FetchedGame? _parseChessComGame(Map<String, dynamic> json, String me) {
     userSide: side,
     opponent: opponent['username'] as String,
     opponentRating: opponent['rating'] as int?,
+    speed: GameSpeed.parse(json['time_class'] as String?),
     playedAt: DateTime.fromMillisecondsSinceEpoch((json['end_time'] as int) * 1000),
     sanMoves: moves,
   );

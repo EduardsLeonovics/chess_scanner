@@ -57,6 +57,40 @@ void main() {
     expect(library.analyzedGames, isEmpty);
     expect(library.coverage, isEmpty);
   });
+
+  /// A fresh store over the same saved data, as after restarting the app.
+  PuzzleLibrary reopen() {
+    final prefs = container.read(sharedPreferencesProvider);
+    final restarted = ProviderContainer(overrides: [sharedPreferencesProvider.overrideWithValue(prefs)]);
+    addTearDown(restarted.dispose);
+    return restarted.read(puzzleLibraryProvider);
+  }
+
+  test('everything loaded is still there after a restart', () {
+    container.read(puzzleLibraryProvider.notifier).addGame(gameAt(DateTime(2026)), [puzzle('a')]);
+    final library = reopen();
+    expect(library.puzzles, hasLength(1));
+    expect(library.analyzedGames, {'lichess:g'});
+    expect(library.openingGames.keys, ['lichess:g']);
+  });
+
+  test('an analysis upgrade re-analyzes games but keeps puzzles and openings', () {
+    container.read(puzzleLibraryProvider.notifier).addGame(gameAt(DateTime(2026)), [puzzle('a')]);
+    container.read(sharedPreferencesProvider).setInt('puzzles.dataVersion', 1);
+    final library = reopen();
+    expect(library.analyzedGames, isEmpty);
+    expect(library.puzzles, hasLength(1));
+    expect(library.openingGames.keys, ['lichess:g']);
+  });
+
+  test('one unreadable part of the saved data does not lose the rest', () {
+    container.read(puzzleLibraryProvider.notifier).addGame(gameAt(DateTime(2026)), [puzzle('a')]);
+    container.read(sharedPreferencesProvider).setString('puzzles.list', '[{"broken": true}]');
+    final library = reopen();
+    expect(library.puzzles, isEmpty);
+    expect(library.openingGames.keys, ['lichess:g']);
+    expect(library.coverage, isNotEmpty);
+  });
 }
 
 FetchedGame gameAt(DateTime playedAt) => FetchedGame(

@@ -1,12 +1,16 @@
 import 'dart:convert';
 
+import 'package:dartchess/dartchess.dart' show kInitialFEN;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../accounts/accounts.dart';
 import '../accounts/game_sources.dart';
 import '../engine/engine_service.dart';
+import '../openings/repertoire.dart';
 import '../settings/appearance.dart';
+import '../skills/opening_book.dart';
+import '../skills/skill_stats.dart';
 import 'puzzle.dart';
 import 'puzzle_finder.dart';
 
@@ -17,6 +21,8 @@ class PuzzleLibrary {
     this.puzzles = const [],
     this.analyzedGames = const {},
     this.coverage = const {},
+    this.gameStats = const {},
+    this.openingGames = const {},
   });
 
   /// In play order: a mix of categories, see [mixPuzzles].
@@ -26,15 +32,25 @@ class PuzzleLibrary {
   /// Per account (see [accountKeyOf]): the span of games already analyzed.
   final Map<String, Coverage> coverage;
 
+  /// Per analyzed game: the user's skill measurements (see [SkillProfile]).
+  final Map<String, GameSkillStats> gameStats;
+
+  /// Per analyzed standard game: its first moves, for the opening study.
+  final Map<String, RepertoireGame> openingGames;
+
   PuzzleLibrary copyWith({
     List<Puzzle>? puzzles,
     Set<String>? analyzedGames,
     Map<String, Coverage>? coverage,
+    Map<String, GameSkillStats>? gameStats,
+    Map<String, RepertoireGame>? openingGames,
   }) =>
       PuzzleLibrary(
         puzzles: puzzles ?? this.puzzles,
         analyzedGames: analyzedGames ?? this.analyzedGames,
         coverage: coverage ?? this.coverage,
+        gameStats: gameStats ?? this.gameStats,
+        openingGames: openingGames ?? this.openingGames,
       );
 }
 
@@ -62,39 +78,74 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   static const _puzzlesKey = 'puzzles.list';
   static const _gamesKey = 'puzzles.analyzedGames';
   static const _coverageKey = 'puzzles.coverage';
+  static const _statsKey = 'skills.games';
+  static const _openingsKey = 'openings.games';
+  static const _versionKey = 'puzzles.dataVersion';
+
+  /// 2: games are analyzed for skills and openings too. 3: theory length
+  /// counts transpositions back into the book. 4: time controls are kept,
+  /// combinations count once, the end of the book isn't leaving theory, and
+  /// blunders are measured in win chance. Games analyzed under an older
+  /// version are forgotten and re-analyzed. Puzzles and the opening games
+  /// (just the moves played, which no analysis change affects) are kept.
+  static const _dataVersion = 4;
 
   @override
   PuzzleLibrary build() {
     final prefs = ref.watch(sharedPreferencesProvider);
+    if ((prefs.getInt(_versionKey) ?? 1) < _dataVersion) {
+      prefs.remove(_gamesKey);
+      prefs.remove(_coverageKey);
+      prefs.remove(_statsKey);
+      prefs.setInt(_versionKey, _dataVersion);
+    }
     var puzzles = <Puzzle>[];
     var coverage = <String, Coverage>{};
-    try {
-      final raw = prefs.getString(_puzzlesKey);
-      if (raw != null) {
-        puzzles = [
-          for (final json in jsonDecode(raw) as List<dynamic>)
-            Puzzle.fromJson(json as Map<String, dynamic>),
-        ];
+    var gameStats = <String, GameSkillStats>{};
+    var openingGames = <String, RepertoireGame>{};
+    // Each part on its own, so one unreadable part doesn't lose the others.
+    void read(String key, void Function(Object? json) parse) {
+      final raw = prefs.getString(key);
+      if (raw == null) return;
+      try {
+        parse(jsonDecode(raw));
+      } catch (e) {
+        debugPrint('Discarding unreadable $key: $e');
       }
-      final rawCoverage = prefs.getString(_coverageKey);
-      if (rawCoverage != null) {
-        coverage = {
-          for (final MapEntry(:key, :value) in (jsonDecode(rawCoverage) as Map<String, dynamic>).entries)
-            key: Coverage.fromJson(value as Map<String, dynamic>),
-        };
-      }
-    } catch (e) {
-      debugPrint('Discarding unreadable puzzle data: $e');
     }
+
+    read(_puzzlesKey, (json) {
+      puzzles = [for (final p in json as List<dynamic>) Puzzle.fromJson(p as Map<String, dynamic>)];
+    });
+    read(_coverageKey, (json) {
+      coverage = {
+        for (final MapEntry(:key, :value) in (json as Map<String, dynamic>).entries)
+          key: Coverage.fromJson(value as Map<String, dynamic>),
+      };
+    });
+    read(_statsKey, (json) {
+      gameStats = {
+        for (final MapEntry(:key, :value) in (json as Map<String, dynamic>).entries)
+          key: GameSkillStats.fromJson(value as Map<String, dynamic>),
+      };
+    });
+    read(_openingsKey, (json) {
+      final games = [
+        for (final g in json as List<dynamic>) RepertoireGame.fromJson(g as Map<String, dynamic>),
+      ];
+      openingGames = {for (final g in games) g.id: g};
+    });
     return PuzzleLibrary(
       puzzles: mixPuzzles(puzzles),
       analyzedGames: (prefs.getStringList(_gamesKey) ?? const []).toSet(),
       coverage: coverage,
+      gameStats: gameStats,
+      openingGames: openingGames,
     );
   }
 
-  /// Records that [game] was analyzed and found [found].
-  void addGame(FetchedGame game, List<Puzzle> found) {
+  /// Records that [game] was analyzed and found [found] and [skills].
+  void addGame(FetchedGame game, List<Puzzle> found, [GameSkillStats? skills]) {
     final known = {for (final p in state.puzzles) p.id};
     final key = game.accountKey;
     final span = state.coverage[key];
@@ -106,6 +157,19 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
         key: span?.include(game.playedAt) ??
             Coverage(newest: game.playedAt, oldest: game.playedAt),
       },
+      gameStats: skills == null ? null : {...state.gameStats, game.id: skills},
+      openingGames: game.initialFen != kInitialFEN
+          ? null
+          : {
+              ...state.openingGames,
+              game.id: RepertoireGame(
+                id: game.id,
+                side: game.userSide,
+                sanMoves: game.sanMoves.take(repertoirePlies).toList(),
+                playedAt: game.playedAt,
+                speed: game.speed,
+              ),
+            },
     ));
   }
 
@@ -142,6 +206,14 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
     prefs.setString(
       _coverageKey,
       jsonEncode({for (final e in library.coverage.entries) e.key: e.value.toJson()}),
+    );
+    prefs.setString(
+      _openingsKey,
+      jsonEncode([for (final g in library.openingGames.values) g.toJson()]),
+    );
+    prefs.setString(
+      _statsKey,
+      jsonEncode({for (final e in library.gameStats.entries) e.key: e.value.toJson()}),
     );
   }
 }
@@ -268,6 +340,12 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
     var done = 0;
     try {
       final engine = ref.read(engineProvider);
+      OpeningBook? book;
+      try {
+        book = await ref.read(openingBookProvider.future);
+      } catch (e) {
+        debugPrint('Opening book unavailable: $e');
+      }
       for (final game in games) {
         if (_cancelled) break;
         state = GeneratorState(
@@ -277,10 +355,15 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
           found: found,
           message: 'Analyzing game ${done + 1} of ${games.length}',
         );
-        final puzzles = await findPuzzles(game, engine.evaluate, isCancelled: () => _cancelled);
-        if (_cancelled) break;
-        libraryNotifier.addGame(game, puzzles);
-        found += puzzles.length;
+        final analysis = await analyzeGame(
+          game,
+          engine.evaluate,
+          book: book,
+          isCancelled: () => _cancelled,
+        );
+        if (_cancelled || analysis.skills == null) break;
+        libraryNotifier.addGame(game, analysis.puzzles, analysis.skills);
+        found += analysis.puzzles.length;
         done++;
       }
     } on StateError catch (e) {
