@@ -22,6 +22,8 @@ enum PuzzleKind {
 
 /// What the user filters by: the kinds, with mates split by length.
 enum PuzzleCategory {
+  mateIn1('Mate in 1'),
+  mateIn2('Mate in 2'),
   mateIn3('Mate in 3'),
   mateIn4('Mate in 4'),
   mateIn5('Mate in 5'),
@@ -33,6 +35,7 @@ enum PuzzleCategory {
   final String label;
 }
 
+/// The outcome of the latest attempt; [unsolved] if never attempted.
 enum PuzzleResult { unsolved, solved, failed }
 
 /// A position from one of the user's games where they missed something.
@@ -56,6 +59,10 @@ class Puzzle {
     this.lastMove,
     this.mateIn,
     this.result = PuzzleResult.unsolved,
+    this.attempts = 0,
+    this.streak = 0,
+    this.lastSeen,
+    this.dueAt,
   });
 
   final String id;
@@ -96,8 +103,18 @@ class Puzzle {
 
   final PuzzleResult result;
 
+  /// Spaced repetition (see `review.dart`): how often it was attempted,
+  /// solved in a row, last shown, and when it's due again. [lastSeen] is
+  /// null for a puzzle never shown.
+  final int attempts;
+  final int streak;
+  final DateTime? lastSeen;
+  final DateTime? dueAt;
+
   PuzzleCategory get category => switch (kind) {
         PuzzleKind.mate => switch (mateIn) {
+            1 => PuzzleCategory.mateIn1,
+            2 => PuzzleCategory.mateIn2,
             3 => PuzzleCategory.mateIn3,
             4 => PuzzleCategory.mateIn4,
             _ => PuzzleCategory.mateIn5,
@@ -106,7 +123,14 @@ class Puzzle {
         PuzzleKind.capture => PuzzleCategory.capture,
       };
 
-  Puzzle withResult(PuzzleResult result) => Puzzle(
+  Puzzle withReview({
+    required PuzzleResult result,
+    required int attempts,
+    required int streak,
+    required DateTime? lastSeen,
+    required DateTime? dueAt,
+  }) =>
+      Puzzle(
         id: id,
         kind: kind,
         fen: fen,
@@ -124,6 +148,19 @@ class Puzzle {
         playedAt: playedAt,
         moveNumber: moveNumber,
         result: result,
+        attempts: attempts,
+        streak: streak,
+        lastSeen: lastSeen,
+        dueAt: dueAt,
+      );
+
+  /// Never attempted or shown, as when it was found.
+  Puzzle withoutReview() => withReview(
+        result: PuzzleResult.unsolved,
+        attempts: 0,
+        streak: 0,
+        lastSeen: null,
+        dueAt: null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -144,25 +181,50 @@ class Puzzle {
         'playedAt': playedAt.millisecondsSinceEpoch,
         'moveNumber': moveNumber,
         'result': result.name,
+        'attempts': attempts,
+        'streak': streak,
+        'lastSeen': lastSeen?.millisecondsSinceEpoch,
+        'dueAt': dueAt?.millisecondsSinceEpoch,
       };
 
-  factory Puzzle.fromJson(Map<String, dynamic> json) => Puzzle(
-        id: json['id'] as String,
-        kind: PuzzleKind.values.byName(json['kind'] as String),
-        fen: json['fen'] as String,
-        lastMove: json['lastMove'] as String?,
-        solution: (json['solution'] as List<dynamic>).cast<String>(),
-        userSide: Side.values.byName(json['userSide'] as String),
-        playedSan: json['playedSan'] as String,
-        bestScore: json['bestScore'] as int,
-        mateIn: json['mateIn'] as int?,
-        gameId: json['gameId'] as String,
-        site: ChessSite.values.byName(json['site'] as String),
-        gameUrl: json['gameUrl'] as String,
-        opponent: json['opponent'] as String,
-        opponentRating: json['opponentRating'] as int?,
-        playedAt: DateTime.fromMillisecondsSinceEpoch(json['playedAt'] as int),
-        moveNumber: json['moveNumber'] as int,
-        result: PuzzleResult.values.byName(json['result'] as String),
-      );
+  /// Puzzles saved before spaced repetition only have a [result]: a solved
+  /// one comes back in a day, a failed one is due now.
+  factory Puzzle.fromJson(Map<String, dynamic> json) {
+    final result = PuzzleResult.values.byName(json['result'] as String);
+    DateTime? time(String key) => switch (json[key]) {
+          final int ms => DateTime.fromMillisecondsSinceEpoch(ms),
+          _ => null,
+        };
+    final legacy = !json.containsKey('attempts');
+    final now = DateTime.now();
+    return Puzzle(
+      id: json['id'] as String,
+      kind: PuzzleKind.values.byName(json['kind'] as String),
+      fen: json['fen'] as String,
+      lastMove: json['lastMove'] as String?,
+      solution: (json['solution'] as List<dynamic>).cast<String>(),
+      userSide: Side.values.byName(json['userSide'] as String),
+      playedSan: json['playedSan'] as String,
+      bestScore: json['bestScore'] as int,
+      mateIn: json['mateIn'] as int?,
+      gameId: json['gameId'] as String,
+      site: ChessSite.values.byName(json['site'] as String),
+      gameUrl: json['gameUrl'] as String,
+      opponent: json['opponent'] as String,
+      opponentRating: json['opponentRating'] as int?,
+      playedAt: DateTime.fromMillisecondsSinceEpoch(json['playedAt'] as int),
+      moveNumber: json['moveNumber'] as int,
+      result: result,
+      attempts: legacy ? (result == PuzzleResult.unsolved ? 0 : 1) : json['attempts'] as int,
+      streak: legacy ? (result == PuzzleResult.solved ? 1 : 0) : json['streak'] as int,
+      lastSeen: legacy ? (result == PuzzleResult.unsolved ? null : now) : time('lastSeen'),
+      dueAt: legacy
+          ? switch (result) {
+              PuzzleResult.unsolved => null,
+              PuzzleResult.solved => now.add(const Duration(days: 1)),
+              PuzzleResult.failed => now,
+            }
+          : time('dueAt'),
+    );
+  }
 }

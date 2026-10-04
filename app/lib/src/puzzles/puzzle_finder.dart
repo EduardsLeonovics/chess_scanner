@@ -40,8 +40,17 @@ abstract final class PuzzleRules {
   /// The capture line must win at least this much material (pawns = 1).
   static const captureMinMaterial = 2;
 
-  static const mateMin = 3;
+  static const mateMin = 1;
   static const mateMax = 5;
+
+  /// Too easy to be a puzzle: the user is this much material ahead (pawns
+  /// = 1)...
+  static const easyMaterialLead = 8;
+
+  /// ...and each of the engine's top this-many moves keeps at least
+  /// [easyWinning], so almost anything wins.
+  static const easyLines = 5;
+  static const easyWinning = 300;
 
   /// Plies skipped at the start of each game (opening theory).
   static const openingPlies = 8;
@@ -171,6 +180,7 @@ Future<GameAnalysis> analyzeGame(
       side: side,
     );
     if (puzzle == null) continue;
+    if (await isTooEasy(before, side, evaluate)) continue;
 
     final (kind, solution, mateIn) = puzzle;
     final hasLead = i > 0;
@@ -235,7 +245,6 @@ Future<GameAnalysis> analyzeGame(
     if (!_endsInMate(before, line)) return null;
     return (PuzzleKind.mate, line, mate);
   }
-  if (mate != null && mate < PuzzleRules.mateMin) return null;
 
   // Missed winning capture: the capture is the best move and wins material,
   // and not playing it swung the eval to no longer winning.
@@ -258,6 +267,22 @@ Future<GameAnalysis> analyzeGame(
     return (PuzzleKind.onlyMove, [bestMove.uci], null);
   }
   return null;
+}
+
+/// Whether [side], to move in [before], is so far ahead that the puzzle is
+/// pointless: a big material lead and every top engine move still winning.
+/// Only searches when the material lead is there.
+Future<bool> isTooEasy(Position before, Side side, Evaluate evaluate) async {
+  if (materialBalance(before, side) < PuzzleRules.easyMaterialLead) return false;
+  final legal = before.legalMoves.values.fold(0, (n, dests) => n + dests.size);
+  final want = legal < PuzzleRules.easyLines ? legal : PuzzleRules.easyLines;
+  final eval = await evaluate(
+    before.fen,
+    multiPv: PuzzleRules.easyLines,
+    depth: PuzzleRules.verifyDepth,
+  );
+  if (eval.lines.length < want) return false;
+  return eval.lines.take(want).every((l) => scoreOf(l, side) >= PuzzleRules.easyWinning);
 }
 
 /// The user's score after their move from a deep search, or null if the

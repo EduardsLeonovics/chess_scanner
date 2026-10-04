@@ -59,6 +59,12 @@ class _SkillsPageState extends ConsumerState<SkillsPage> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       children: [
+                        Text(
+                          library.gameCountLabel,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 8),
                         LayoutBuilder(
                           builder: (context, constraints) => Center(
                             child: SkillRadar(

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'src/app_info.dart';
 import 'src/diagnostics/crash_log.dart';
 import 'src/home/home_shell.dart';
+import 'src/puzzles/background_work.dart';
 import 'src/settings/appearance.dart';
 
 Future<void> main() async {
@@ -17,6 +18,7 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     final prefs = await SharedPreferences.getInstance();
     crashLog = CrashLog(prefs)..install();
+    BackgroundWork.init();
     LicenseRegistry.addLicense(() => Stream.fromIterable(const [
           LicenseEntryWithLineBreaks([AppInfo.name], AppInfo.legalese),
           LicenseEntryWithLineBreaks(

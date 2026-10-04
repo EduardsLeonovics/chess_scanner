@@ -9,6 +9,7 @@ import 'puzzle.dart';
 import 'generator_banner.dart';
 import 'puzzle_board.dart';
 import 'puzzle_store.dart';
+import 'review.dart';
 
 /// Puzzles made from the user's own games.
 class PuzzlesPage extends ConsumerStatefulWidget {
@@ -45,29 +46,24 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
           if (categories.contains(p.category)) p,
       ];
 
-  /// The puzzle on screen: the chosen one, else the first unsolved one.
+  /// The puzzle on screen. Kept until the user moves on, even when its
+  /// result changes the order; else the next one by [pickNext].
   Puzzle? _current(List<Puzzle> visible) {
-    if (visible.isEmpty) return null;
     for (final p in visible) {
       if (p.id == _currentId) return p;
     }
-    return visible.firstWhere(
-      (p) => p.result == PuzzleResult.unsolved,
-      orElse: () => visible.first,
-    );
+    final next = pickNext(visible, DateTime.now());
+    _currentId = next?.id;
+    return next;
   }
 
-  void _next(List<Puzzle> visible, Puzzle current) {
-    final start = visible.indexWhere((p) => p.id == current.id);
-    // Next unsolved puzzle after this one, wrapping; else simply the next.
-    for (var i = 1; i <= visible.length; i++) {
-      final p = visible[(start + i) % visible.length];
-      if (p.result == PuzzleResult.unsolved && p.id != current.id) {
-        setState(() => _currentId = p.id);
-        return;
-      }
-    }
-    setState(() => _currentId = visible[(start + 1) % visible.length].id);
+  void _next(Puzzle current, bool attempted) {
+    final library = ref.read(puzzleLibraryProvider.notifier);
+    if (!attempted) library.skip(current.id);
+    // Pick from the updated list, so the review just recorded counts.
+    final categories = ref.read(puzzleCategoriesProvider);
+    final updated = _visiblePuzzles(ref.read(puzzleLibraryProvider), categories);
+    setState(() => _currentId = pickNext(updated, DateTime.now(), previous: current.id)?.id);
   }
 
   void _load() {
@@ -134,7 +130,7 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
                                   constraints.maxWidth,
                                   constraints.maxHeight * 0.72,
                                 ),
-                                onNext: () => _next(visible, current),
+                                onNext: (attempted) => _next(current, attempted),
                               ),
                             ),
                           ),

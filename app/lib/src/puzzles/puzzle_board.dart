@@ -27,7 +27,9 @@ class PuzzleBoard extends ConsumerStatefulWidget {
 
   final Puzzle puzzle;
   final double boardSize;
-  final VoidCallback onNext;
+
+  /// Moves on; `attempted` is false for a skip (no move made, no solution shown).
+  final void Function(bool attempted) onNext;
 
   @override
   ConsumerState<PuzzleBoard> createState() => _PuzzleBoardState();
@@ -40,6 +42,9 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
   int _step = 0;
   _Phase _phase = _Phase.intro;
   bool _failed = false;
+
+  /// The outcome went to the library: once per showing.
+  bool _recorded = false;
 
   /// Position to go back to after a wrong move.
   (Position, Move?)? _undo;
@@ -203,13 +208,17 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
 
   void _fail() {
     _failed = true;
-    ref.read(puzzleLibraryProvider.notifier).recordResult(_puzzle.id, PuzzleResult.failed);
+    _recordOnce(PuzzleResult.failed);
   }
 
   void _record() {
-    if (!_failed) {
-      ref.read(puzzleLibraryProvider.notifier).recordResult(_puzzle.id, PuzzleResult.solved);
-    }
+    if (!_failed) _recordOnce(PuzzleResult.solved);
+  }
+
+  void _recordOnce(PuzzleResult outcome) {
+    if (_recorded) return;
+    _recorded = true;
+    ref.read(puzzleLibraryProvider.notifier).recordResult(_puzzle.id, outcome);
   }
 
   void _restore() {
@@ -302,7 +311,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
                     ),
                   const Spacer(),
                   FilledButton.icon(
-                    onPressed: widget.onNext,
+                    onPressed: () => widget.onNext(_recorded),
                     icon: const Icon(Icons.arrow_forward),
                     label: Text(done ? 'Next puzzle' : 'Skip'),
                   ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../analysis/analysis_page.dart';
 import '../diagnostics/crash_log.dart';
 import '../openings/openings_page.dart';
+import '../puzzles/puzzle_store.dart';
 import '../puzzles/puzzles_page.dart';
 import '../skills/skills_page.dart';
 import 'books_icon.dart';
@@ -23,7 +24,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _offerCrashReport());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _offerCrashReport();
+      // Finish analyzing games a previous session didn't get through.
+      ref.read(puzzleGeneratorProvider.notifier).resume();
+    });
   }
 
   /// After a crash, asks once whether to send the report.

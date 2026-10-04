@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../accounts/accounts.dart';
 import '../accounts/game_sources.dart';
+import '../puzzles/puzzle_store.dart';
 
 const _ink = Color(0xFF29313B);
 const _muted = Color(0xFF8A919B);
@@ -22,6 +23,13 @@ class AccountsSection extends ConsumerWidget {
         for (final site in ChessSite.values) ...[
           _AccountTile(site: site, username: accounts.of(site)),
           const SizedBox(height: 10),
+        ],
+        if (accounts.any) ...[
+          Text(
+            ref.watch(puzzleLibraryProvider).gameCountLabel,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: _ink),
+          ),
+          const SizedBox(height: 6),
         ],
         Text(
           'Used to turn mistakes from your own games into puzzles. '

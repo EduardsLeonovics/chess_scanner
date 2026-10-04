@@ -66,6 +66,37 @@ class FetchedGame {
   final String initialFen;
 
   String get accountKey => accountKeyOf(site, account);
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'site': site.name,
+        'account': account,
+        'url': url,
+        'userSide': userSide.name,
+        'opponent': opponent,
+        'opponentRating': opponentRating,
+        'speed': speed?.name,
+        'playedAt': playedAt.millisecondsSinceEpoch,
+        'sanMoves': sanMoves,
+        'initialFen': initialFen,
+      };
+
+  factory FetchedGame.fromJson(Map<String, dynamic> json) => FetchedGame(
+        id: json['id'] as String,
+        site: ChessSite.values.byName(json['site'] as String),
+        account: json['account'] as String,
+        url: json['url'] as String,
+        userSide: Side.values.byName(json['userSide'] as String),
+        opponent: json['opponent'] as String,
+        opponentRating: json['opponentRating'] as int?,
+        speed: switch (json['speed']) {
+          final String name => GameSpeed.values.byName(name),
+          _ => null,
+        },
+        playedAt: DateTime.fromMillisecondsSinceEpoch(json['playedAt'] as int),
+        sanMoves: (json['sanMoves'] as List<dynamic>).cast<String>(),
+        initialFen: json['initialFen'] as String,
+      );
 }
 
 /// Identifies one account, e.g. `chessCom:hikaru`.
