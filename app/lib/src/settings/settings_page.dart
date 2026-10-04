@@ -220,6 +220,39 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
               _Section(
+                icon: Icons.blur_circular,
+                title: 'Piece outline',
+                child: Row(
+                  children: [
+                    _ColorButton(
+                      label: 'White pieces',
+                      color: appearance.effectiveWhiteOutline,
+                      onTap: () => pickColor(
+                        'White piece outline',
+                        appearance.effectiveWhiteOutline ?? const Color(0xFF000000),
+                        notifier.setWhiteOutline,
+                      ),
+                      onClear: appearance.effectiveWhiteOutline == null
+                          ? null
+                          : () => notifier.setWhiteOutline(Appearance.noOutline),
+                    ),
+                    const SizedBox(width: 10),
+                    _ColorButton(
+                      label: 'Black pieces',
+                      color: appearance.effectiveBlackOutline,
+                      onTap: () => pickColor(
+                        'Black piece outline',
+                        appearance.effectiveBlackOutline ?? const Color(0xFFFFFFFF),
+                        notifier.setBlackOutline,
+                      ),
+                      onClear: appearance.effectiveBlackOutline == null
+                          ? null
+                          : () => notifier.setBlackOutline(Appearance.noOutline),
+                    ),
+                  ],
+                ),
+              ),
+              _Section(
                 icon: Icons.volume_up_outlined,
                 title: 'Sound',
                 child: SwitchListTile(
@@ -347,11 +380,16 @@ class _Choice extends StatelessWidget {
 }
 
 class _ColorButton extends StatelessWidget {
-  const _ColorButton({required this.label, required this.color, required this.onTap});
+  const _ColorButton({required this.label, required this.color, required this.onTap, this.onClear});
 
   final String label;
-  final Color color;
+
+  /// Null shows a crossed-out swatch ("none").
+  final Color? color;
   final VoidCallback onTap;
+
+  /// Shows an × that clears the colour.
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -373,11 +411,21 @@ class _ColorButton extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0x33000000)),
               ),
+              child: color == null ? const Icon(Icons.block, size: 18, color: _muted) : null,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(label, style: const TextStyle(color: _ink), overflow: TextOverflow.ellipsis),
             ),
+            if (onClear != null)
+              InkWell(
+                onTap: onClear,
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(2),
+                  child: Icon(Icons.close, size: 18, color: _muted),
+                ),
+              ),
           ],
         ),
       ),

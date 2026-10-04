@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:chessground/chessground.dart';
@@ -15,7 +16,11 @@ class BoardTheme {
   final ChessboardColorScheme scheme;
 }
 
-const boardThemes = [
+/// Plain white and black squares; black pieces get a white outline by
+/// default so they stand out on the black squares.
+const blackWhiteThemeId = 'blackWhite';
+
+final boardThemes = [
   BoardTheme('brown', 'Brown', ChessboardColorScheme.brown),
   BoardTheme('green', 'Green', ChessboardColorScheme.green),
   BoardTheme('blue', 'Blue', ChessboardColorScheme.blue),
@@ -28,6 +33,7 @@ const boardThemes = [
   BoardTheme('metal', 'Metal', ChessboardColorScheme.metal),
   BoardTheme('olive', 'Olive', ChessboardColorScheme.olive),
   BoardTheme('newspaper', 'Newspaper', ChessboardColorScheme.newspaper),
+  BoardTheme(blackWhiteThemeId, 'Black & white', _solidScheme(const Color(0xFFFFFFFF), const Color(0xFF000000))),
 ];
 
 /// The piece styles offered in settings: widely used Lichess sets.
@@ -51,6 +57,8 @@ class Appearance {
     this.blackPieces = defaultBlackPieces,
     this.moveSounds = true,
     this.showBestMoveArrow = true,
+    this.whiteOutline,
+    this.blackOutline,
   });
 
   /// [boardThemeId] when the user picked their own square colours.
@@ -75,6 +83,21 @@ class Appearance {
   /// Draw the engine's best move as an arrow on the analysis board.
   final bool showBestMoveArrow;
 
+  /// A ring drawn around the white / black pieces. Null: the default (none,
+  /// or white for black pieces on the [blackWhiteThemeId] board);
+  /// [noOutline]: none, even there.
+  final Color? whiteOutline;
+  final Color? blackOutline;
+
+  static const noOutline = Color(0x00000000);
+
+  Color? get effectiveWhiteOutline => _visible(whiteOutline);
+
+  Color? get effectiveBlackOutline =>
+      _visible(blackOutline ?? (boardThemeId == blackWhiteThemeId ? const Color(0xFFFFFFFF) : null));
+
+  static Color? _visible(Color? c) => c == null || c.a == 0 ? null : c;
+
   bool get isCustomBoard => boardThemeId == customThemeId;
 
   ChessboardColorScheme get colorScheme {
@@ -93,6 +116,8 @@ class Appearance {
     Color? blackPieces,
     bool? moveSounds,
     bool? showBestMoveArrow,
+    Color? Function()? whiteOutline,
+    Color? Function()? blackOutline,
   }) {
     return Appearance(
       boardThemeId: boardThemeId ?? this.boardThemeId,
@@ -103,6 +128,8 @@ class Appearance {
       blackPieces: blackPieces ?? this.blackPieces,
       moveSounds: moveSounds ?? this.moveSounds,
       showBestMoveArrow: showBestMoveArrow ?? this.showBestMoveArrow,
+      whiteOutline: whiteOutline == null ? this.whiteOutline : whiteOutline(),
+      blackOutline: blackOutline == null ? this.blackOutline : blackOutline(),
     );
   }
 
@@ -114,6 +141,8 @@ class Appearance {
   static const _blackPiecesKey = 'appearance.blackPieces';
   static const _moveSoundsKey = 'appearance.moveSounds';
   static const _bestMoveArrowKey = 'appearance.bestMoveArrow';
+  static const _whiteOutlineKey = 'appearance.whiteOutline';
+  static const _blackOutlineKey = 'appearance.blackOutline';
 
   factory Appearance.fromPrefs(SharedPreferences prefs) {
     const defaults = Appearance();
@@ -135,6 +164,8 @@ class Appearance {
       blackPieces: color(_blackPiecesKey) ?? defaults.blackPieces,
       moveSounds: prefs.getBool(_moveSoundsKey) ?? defaults.moveSounds,
       showBestMoveArrow: prefs.getBool(_bestMoveArrowKey) ?? defaults.showBestMoveArrow,
+      whiteOutline: color(_whiteOutlineKey),
+      blackOutline: color(_blackOutlineKey),
     );
   }
 
@@ -147,6 +178,13 @@ class Appearance {
     await prefs.setInt(_blackPiecesKey, blackPieces.toARGB32());
     await prefs.setBool(_moveSoundsKey, moveSounds);
     await prefs.setBool(_bestMoveArrowKey, showBestMoveArrow);
+    for (final (key, color) in [(_whiteOutlineKey, whiteOutline), (_blackOutlineKey, blackOutline)]) {
+      if (color == null) {
+        await prefs.remove(key);
+      } else {
+        await prefs.setInt(key, color.toARGB32());
+      }
+    }
   }
 
   @override
@@ -159,7 +197,9 @@ class Appearance {
       other.whitePieces == whitePieces &&
       other.blackPieces == blackPieces &&
       other.moveSounds == moveSounds &&
-      other.showBestMoveArrow == showBestMoveArrow;
+      other.showBestMoveArrow == showBestMoveArrow &&
+      other.whiteOutline == whiteOutline &&
+      other.blackOutline == blackOutline;
 
   @override
   int get hashCode =>
@@ -172,6 +212,8 @@ class Appearance {
         blackPieces,
         moveSounds,
         showBestMoveArrow,
+        whiteOutline,
+        blackOutline,
       );
 }
 
@@ -229,6 +271,11 @@ class AppearanceNotifier extends Notifier<Appearance> {
 
   void setShowBestMoveArrow(bool on) => _update(state.copyWith(showBestMoveArrow: on));
 
+  /// [Appearance.noOutline] turns an outline off; null restores the default.
+  void setWhiteOutline(Color? color) => _update(state.copyWith(whiteOutline: () => color));
+
+  void setBlackOutline(Color? color) => _update(state.copyWith(blackOutline: () => color));
+
   void reset() => _update(const Appearance());
 
   void _update(Appearance appearance) {
@@ -237,42 +284,75 @@ class AppearanceNotifier extends Notifier<Appearance> {
   }
 }
 
-/// The piece images to draw, recoloured to the chosen piece colours.
+/// The piece images to draw, recoloured to the chosen piece colours and
+/// outlined as chosen.
 final pieceAssetsProvider = FutureProvider<PieceAssets>((ref) {
-  final (set, white, black) = ref.watch(
-    appearanceProvider.select((a) => (a.pieceSet, a.whitePieces, a.blackPieces)),
+  final (set, white, black, whiteOutline, blackOutline) = ref.watch(
+    appearanceProvider.select(
+      (a) => (a.pieceSet, a.whitePieces, a.blackPieces, a.effectiveWhiteOutline, a.effectiveBlackOutline),
+    ),
   );
-  return tintedPieceAssets(set, white: white, black: black);
+  return tintedPieceAssets(
+    set,
+    white: white,
+    black: black,
+    whiteOutline: whiteOutline,
+    blackOutline: blackOutline,
+  );
 });
 
 /// [set]'s pieces with white fills tinted [white] and black fills tinted
-/// [black]. The recoloured images are put in chessground's image cache
-/// under their own keys, so the board widgets can use them like any set.
+/// [black], ringed with [whiteOutline] / [blackOutline] when given. The
+/// recoloured images are put in chessground's image cache under their own
+/// keys, so the board widgets can use them like any set.
 Future<PieceAssets> tintedPieceAssets(
   PieceSet set, {
   required Color white,
   required Color black,
+  Color? whiteOutline,
+  Color? blackOutline,
 }) async {
   final assets = <PieceKind, AssetImage>{};
   for (final MapEntry(key: kind, value: asset) in set.assets.entries) {
-    final color = kind.side == Side.white ? white : black;
-    final unchanged = color ==
-        (kind.side == Side.white ? Appearance.defaultWhitePieces : Appearance.defaultBlackPieces);
-    if (unchanged) {
+    final isWhite = kind.side == Side.white;
+    final color = isWhite ? white : black;
+    final outline = isWhite ? whiteOutline : blackOutline;
+    final tinted = color != (isWhite ? Appearance.defaultWhitePieces : Appearance.defaultBlackPieces);
+    if (!tinted && outline == null) {
       assets[kind] = asset;
       continue;
     }
+    String hex(Color c) => c.toARGB32().toRadixString(16);
     final key = AssetImage(
-      '${asset.assetName}#${color.toARGB32().toRadixString(16)}',
+      '${asset.assetName}#${hex(color)}${outline == null ? '' : '#${hex(outline)}'}',
       package: asset.package,
     );
     if (ChessgroundImages.instance.get(key) == null) {
-      final source = await ChessgroundImages.instance.load(asset);
-      ChessgroundImages.instance.add(key, await _tint(source, color, kind.side));
+      var image = await ChessgroundImages.instance.load(asset);
+      if (tinted) image = await _tint(image, color, kind.side);
+      if (outline != null) image = await _outline(image, outline);
+      ChessgroundImages.instance.add(key, image);
     }
     assets[kind] = key;
   }
   return assets;
+}
+
+/// [source] on top of a ring of [color] around its shape: the shape is
+/// stamped in [color] at offsets around a circle (a cheap dilation),
+/// then the piece itself is drawn over it.
+Future<ui.Image> _outline(ui.Image source, Color color) {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final radius = source.width * 0.035;
+  final stamp = Paint()..colorFilter = ColorFilter.mode(color, BlendMode.srcIn);
+  const steps = 16;
+  for (var i = 0; i < steps; i++) {
+    final angle = 2 * math.pi * i / steps;
+    canvas.drawImage(source, Offset(math.cos(angle) * radius, math.sin(angle) * radius), stamp);
+  }
+  canvas.drawImage(source, Offset.zero, Paint());
+  return recorder.endRecording().toImage(source.width, source.height);
 }
 
 Future<ui.Image> _tint(ui.Image source, Color color, Side side) {
