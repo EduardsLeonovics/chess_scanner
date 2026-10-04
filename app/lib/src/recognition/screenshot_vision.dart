@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:dartchess/dartchess.dart';
 import 'package:image/image.dart' as img;
 
+import 'perspective.dart';
+
 /// Side length of the normalized piece silhouettes that get compared.
 const _maskSize = 32;
 
@@ -62,7 +64,8 @@ PieceTemplate? templateFromPieceImage(Uint8List bytes, Role role) {
   return PieceTemplate(role, blob.normalized(), blob.height / h);
 }
 
-/// Finds a 2D chessboard in a screenshot and reads the pieces on it.
+/// Finds a 2D chessboard in a screenshot, or a flat board photographed at
+/// an angle (see [rectifyBoard]), and reads the pieces on it.
 ///
 /// Throws [RecognitionException] if no board is found.
 RecognizedBoard recognizeScreenshot(
@@ -80,8 +83,16 @@ RecognizedBoard recognizeScreenshot(
         ? img.copyResize(image, width: _maxSide)
         : img.copyResize(image, height: _maxSide);
   }
-  final pixels = _Pixels.fromImage(image);
-  final grid = _findGrid(pixels);
+  var pixels = _Pixels.fromImage(image);
+  var grid = _findGrid(pixels);
+  if (grid == null) {
+    // Not a straight-on screenshot: maybe a photo of a board at an angle.
+    final straightened = rectifyBoard(image);
+    if (straightened != null) {
+      pixels = _Pixels.fromImage(straightened);
+      grid = _findGrid(pixels);
+    }
+  }
   if (grid == null) {
     throw const RecognitionException("Couldn't find a chessboard in that image.");
   }

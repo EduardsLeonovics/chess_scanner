@@ -137,6 +137,11 @@ void main() {
     // Real screenshots from the web: different sites, themes and piece sets.
     for (final (file, fen, blackAtBottom) in [
       ('real_brown_board.png', 'k1b5/pppN4/1R6/8/Q7/8/3K4/8', false),
+      // A phone photo of a curved monitor, at an angle, with moire: found by
+      // straightening the board first (perspective.dart).
+      ('photo_of_monitor_angled.jpeg', '1r3r2/1pR2N1k/p1b1p1pP/4P2n/8/P7/1P6/1K3R2', false),
+      // real_brown_board.png seen in perspective, on a grey background.
+      ('real_brown_board_tilted.png', 'k1b5/pppN4/1R6/8/Q7/8/3K4/8', false),
       // Wood texture: the grain used to stick to a pawn and make it a rook.
       (
         'real_wood_board_black_side.png',

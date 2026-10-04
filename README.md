@@ -35,6 +35,10 @@ docs/       Design notes
 4. **Build FEN** — user confirms/edits the board, picks side to move, then
    analysis starts.
 
+Flat boards photographed at an angle (a phone photo of a monitor, a printed
+diagram) are straightened first: Hough lines, a projective 9-line grid fit
+per direction and a homography (`app/lib/src/recognition/perspective.dart`).
+
 Screenshots (2D digital boards) are the easy case and should ship first;
 real 3D photos need a trained model and are the hard part.
 
