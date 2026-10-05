@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -192,6 +193,65 @@ class CommunityRepository {
     final rows = await _client.from('follows').select('followee_id').eq('follower_id', _uid);
     return [for (final row in rows) row['followee_id'] as String];
   }
+
+  // -------------------------------------------------------------------------
+  // Profile pictures
+
+  /// Uploads [jpeg] as the user's picture and returns its URL.
+  Future<String> setAvatar(Uint8List jpeg) => _call(() async {
+        final uid = _uid;
+        final path = '$uid/avatar.jpg';
+        await _client.storage.from('avatars').uploadBinary(
+              path,
+              jpeg,
+              fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+            );
+        // A new URL each time, so caches don't keep showing the old picture.
+        final url = '${_client.storage.from('avatars').getPublicUrl(path)}'
+            '?v=${DateTime.now().millisecondsSinceEpoch}';
+        await _client.from('profiles').update({'avatar_url': url}).eq('id', uid);
+        return url;
+      });
+
+  Future<void> removeAvatar() => _call(() async {
+        final uid = _uid;
+        await _client.from('profiles').update({'avatar_url': null}).eq('id', uid);
+        await _client.storage.from('avatars').remove(['$uid/avatar.jpg']);
+      });
+
+  // -------------------------------------------------------------------------
+  // Post alerts ("notify me when they post")
+
+  Future<bool> hasPostAlerts(String userId) => _call(() async {
+        final row = await _client
+            .from('post_alerts')
+            .select('author_id')
+            .eq('subscriber_id', _uid)
+            .eq('author_id', userId)
+            .maybeSingle();
+        return row != null;
+      });
+
+  Future<void> setPostAlerts(String userId, bool on) => _call(() async {
+        if (on) {
+          await _client.from('post_alerts').upsert({'subscriber_id': _uid, 'author_id': userId});
+        } else {
+          await _client.from('post_alerts').delete().eq('subscriber_id', _uid).eq('author_id', userId);
+        }
+      });
+
+  /// Posts by the people the user turned alerts on for, newest first,
+  /// older than [before] (for paging) and, with [since], newer than that.
+  Future<List<CommunityPost>> alertPosts({DateTime? before, DateTime? since}) => _call(() async {
+        final rows = await _client.from('post_alerts').select('author_id').eq('subscriber_id', _uid);
+        final authors = [for (final row in rows) row['author_id'] as String];
+        if (authors.isEmpty) return const <CommunityPost>[];
+        var query = _client.from('feed_posts').select().inFilter('author_id', authors);
+        if (before != null) query = query.lt('created_at', before.toUtc().toIso8601String());
+        if (since != null) query = query.gt('created_at', since.toUtc().toIso8601String());
+        final posts = await query.order('created_at', ascending: false).limit(pageSize);
+        return posts.map(CommunityPost.fromJson).toList();
+      });
 
   // -------------------------------------------------------------------------
   // Safety

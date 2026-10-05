@@ -126,6 +126,8 @@ class GameSkillStats {
     this.balancedAccuracy = 0,
     this.piecesDefended = 0,
     this.piecesCounted = 0,
+    this.timedMoves = const [0, 0, 0],
+    this.thinkingTime = const [0, 0, 0],
   });
 
   final DateTime playedAt;
@@ -159,6 +161,11 @@ class GameSkillStats {
   final int piecesDefended;
   final int piecesCounted;
 
+  /// Per [GamePhase] (by index): the user's moves with a known thinking
+  /// time, and the seconds spent on them. Zero when the game had no clock.
+  final List<int> timedMoves;
+  final List<double> thinkingTime;
+
   Map<String, dynamic> toJson() => {
         'playedAt': playedAt.millisecondsSinceEpoch,
         if (speed != null) 'sp': speed!.name,
@@ -178,6 +185,10 @@ class GameSkillStats {
         'ba': balancedAccuracy,
         'pd': piecesDefended,
         'pc': piecesCounted,
+        if (timedMoves.any((n) => n > 0)) ...{
+          'tn': timedMoves,
+          'tt': [for (final t in thinkingTime) double.parse(t.toStringAsFixed(1))],
+        },
       };
 
   factory GameSkillStats.fromJson(Map<String, dynamic> json) => GameSkillStats(
@@ -199,7 +210,55 @@ class GameSkillStats {
         balancedAccuracy: (json['ba'] as num).toDouble(),
         piecesDefended: json['pd'] as int,
         piecesCounted: json['pc'] as int,
+        timedMoves: (json['tn'] as List<dynamic>?)?.cast<int>() ?? const [0, 0, 0],
+        thinkingTime: [
+          for (final t in (json['tt'] as List<dynamic>?) ?? const [0, 0, 0]) (t as num).toDouble(),
+        ],
       );
+}
+
+/// The stage of the game a move was played in, as the skills measure it:
+/// the endgame once few pieces are left, the opening for the first
+/// [SkillRules.openingPlies] plies, the middlegame in between.
+enum GamePhase {
+  opening('Opening'),
+  middlegame('Middlegame'),
+  endgame('Endgame');
+
+  const GamePhase(this.label);
+
+  final String label;
+
+  static GamePhase of(Position before, int ply) {
+    if (_minorsAndMajors(before) <= SkillRules.endgameMaxPieces) return endgame;
+    return ply < SkillRules.openingPlies ? opening : middlegame;
+  }
+}
+
+/// Seconds the user thought about each of their moves, by [GamePhase]:
+/// (moves, seconds) per phase. [clocks] are the remaining times after each
+/// ply in centiseconds; each player's first move is skipped (the clock
+/// doesn't run yet on Lichess, and there's no earlier reading to compare).
+(List<int>, List<double>) thinkingTimes({
+  required Side side,
+  required List<Position> positions,
+  required List<int>? clocks,
+  required int increment,
+}) {
+  final moves = [0, 0, 0];
+  final seconds = [0.0, 0.0, 0.0];
+  if (clocks == null) return (moves, seconds);
+  final plies = math.min(clocks.length, positions.length - 1);
+  for (var i = 2; i < plies; i++) {
+    if (positions[i].turn != side) continue;
+    final spent = (clocks[i - 2] - clocks[i]) / 100 + increment;
+    // A bad reading (clock added by the opponent, a site glitch): skip it.
+    if (spent < 0 || spent > 3600) continue;
+    final phase = GamePhase.of(positions[i], i).index;
+    moves[phase]++;
+    seconds[phase] += spent;
+  }
+  return (moves, seconds);
 }
 
 /// Engine verdict for one position: the best line, or null when there was
@@ -223,6 +282,8 @@ GameSkillStats measureGame({
   required int? Function(int ply) afterScore,
   required int? Function(PvLine line, Side side) mateFor,
   OpeningBook? book,
+  List<int>? clocks,
+  int increment = 0,
 }) {
   var tacticChances = 0, tacticsFound = 0;
   var middleMoves = 0, middleBlunders = 0;
@@ -316,9 +377,18 @@ GameSkillStats measureGame({
     }
   }
 
+  final (timedMoves, thinkingTime) = thinkingTimes(
+    side: side,
+    positions: positions,
+    clocks: clocks,
+    increment: increment,
+  );
+
   return GameSkillStats(
     playedAt: playedAt,
     speed: speed,
+    timedMoves: timedMoves,
+    thinkingTime: thinkingTime,
     tacticChances: tacticChances,
     tacticsFound: tacticsFound,
     theoryMoves: theoryMoves,
@@ -379,6 +449,47 @@ class SkillScore {
 
   /// Plain-language description of the evidence, e.g. "found 7 of 12".
   final String basis;
+}
+
+/// How long the user thinks per move, over the analyzed games that had a
+/// clock.
+@immutable
+class TimeProfile {
+  const TimeProfile({required this.games, required this.moves, required this.seconds});
+
+  /// Games with clock data.
+  final int games;
+
+  /// Per [GamePhase] (by index).
+  final List<int> moves;
+  final List<double> seconds;
+
+  int get totalMoves => moves.fold(0, (a, b) => a + b);
+
+  /// Average seconds per move overall, or null without data.
+  double? get average {
+    final n = totalMoves;
+    return n == 0 ? null : seconds.fold(0.0, (a, b) => a + b) / n;
+  }
+
+  /// Average seconds per move in [phase], or null without data.
+  double? averageIn(GamePhase phase) =>
+      moves[phase.index] == 0 ? null : seconds[phase.index] / moves[phase.index];
+
+  factory TimeProfile.from(Iterable<GameSkillStats> stats) {
+    final moves = [0, 0, 0];
+    final seconds = [0.0, 0.0, 0.0];
+    var games = 0;
+    for (final g in stats) {
+      if (!g.timedMoves.any((n) => n > 0)) continue;
+      games++;
+      for (var p = 0; p < 3; p++) {
+        moves[p] += g.timedMoves[p];
+        seconds[p] += g.thinkingTime[p];
+      }
+    }
+    return TimeProfile(games: games, moves: moves, seconds: seconds);
+  }
 }
 
 /// The user's five skill scores over their analyzed games.

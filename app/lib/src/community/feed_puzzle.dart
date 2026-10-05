@@ -5,6 +5,7 @@ import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analysis/analysis_page.dart';
 import '../engine/engine_service.dart';
 import '../puzzles/puzzle_finder.dart';
 import '../settings/appearance.dart';
@@ -214,6 +215,22 @@ class _FeedPuzzleState extends ConsumerState<FeedPuzzle> with AutomaticKeepAlive
     _later(const Duration(milliseconds: 300), step);
   }
 
+  /// Opens the puzzle on the analysis board with the solution to step
+  /// through and the engine's lines.
+  void _analyze() {
+    Position start = Chess.fromSetup(Setup.parseFen(_post.fen));
+    final lead = _post.lastMove == null ? null : _parse(start, _post.lastMove!);
+    if (lead != null) start = start.play(lead);
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => AnalysisPage(
+        initialFen: start.fen,
+        initialMoves: _solution,
+        orientation: _side,
+        title: 'Puzzle analysis',
+      ),
+    ));
+  }
+
   void _retry() {
     _generation++;
     setState(_start);
@@ -262,13 +279,18 @@ class _FeedPuzzleState extends ConsumerState<FeedPuzzle> with AutomaticKeepAlive
                   style: theme.textTheme.titleSmall?.copyWith(color: color, fontWeight: FontWeight.w600),
                 ),
               ),
-              if (done)
+              if (done) ...[
+                TextButton.icon(
+                  onPressed: _analyze,
+                  icon: const Icon(Icons.insights, size: 18),
+                  label: const Text('Analyze'),
+                ),
                 TextButton.icon(
                   onPressed: _retry,
                   icon: const Icon(Icons.replay, size: 18),
                   label: const Text('Again'),
-                )
-              else
+                ),
+              ] else
                 TextButton.icon(
                   onPressed: _phase == _Phase.yourMove || _phase == _Phase.wrong ? _showSolution : null,
                   icon: const Icon(Icons.visibility_outlined, size: 18),

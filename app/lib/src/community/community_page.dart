@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_page.dart';
 import 'community_repository.dart';
 import 'feed_list.dart';
+import 'post_alerts.dart';
 import 'post_card.dart';
 
 /// The Community tab: a feed of puzzles posted by ChessGeek users, solved
@@ -95,6 +96,7 @@ class _Feed extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Community'),
           actions: [
+            const PostAlertsButton(),
             IconButton(
               tooltip: 'Your profile',
               icon: const Icon(Icons.account_circle_outlined),

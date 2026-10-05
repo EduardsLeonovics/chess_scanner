@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
@@ -38,6 +38,10 @@ class CrashReport {
       );
 }
 
+/// Stores crash reports where the developer can read them; throws on
+/// failure. Each row has the keys of [CrashLog.uploadRows].
+typedef CrashUploader = Future<void> Function(List<Map<String, dynamic>> rows);
+
 final crashLogProvider = Provider<CrashLog>(
   (ref) => throw UnimplementedError('crashLogProvider must be overridden'),
 );
@@ -45,9 +49,11 @@ final crashLogProvider = Provider<CrashLog>(
 /// Catches uncaught errors and keeps the latest few on the device.
 ///
 /// Nothing leaves the phone unless the user chooses to send a report from
-/// the prompt after a crash or from Settings.
+/// the prompt after a crash or from Settings. Sending uploads them with
+/// [uploader] (the community server's `crash_reports` table) when there is
+/// one, and falls back to the share sheet otherwise.
 class CrashLog extends ChangeNotifier {
-  CrashLog(this._prefs) {
+  CrashLog(this._prefs, {this.uploader}) {
     try {
       final raw = _prefs.getString(_reportsKey);
       if (raw != null) {
@@ -68,6 +74,9 @@ class CrashLog extends ChangeNotifier {
 
   final SharedPreferences _prefs;
   List<CrashReport> _reports = [];
+
+  /// Where [send] uploads to; null when this build has no server.
+  CrashUploader? uploader;
 
   /// Newest last.
   List<CrashReport> get reports => List.unmodifiable(_reports);
@@ -116,16 +125,54 @@ class CrashLog extends ChangeNotifier {
     _save();
   }
 
-  /// The reports as plain text, with app and device details.
-  Future<String> format() async {
-    var version = 'unknown';
+  static Future<String> _appVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      version = '${info.version}+${info.buildNumber}';
-    } catch (_) {}
+      return '${info.version}+${info.buildNumber}${kDebugMode ? ' (debug)' : ''}';
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
+  /// The reports as rows for [uploader], newest last.
+  Future<List<Map<String, dynamic>>> uploadRows() async {
+    final version = await _appVersion();
+    return [
+      for (final r in _reports)
+        {
+          'app_version': version,
+          'platform': Platform.operatingSystem,
+          'os_version': Platform.operatingSystemVersion,
+          'source': r.source,
+          'error': r.error.length > 4000 ? r.error.substring(0, 4000) : r.error,
+          'stack': r.stack,
+          'happened_at': r.time.toUtc().toIso8601String(),
+        },
+    ];
+  }
+
+  /// Uploads the reports and, once they're stored, deletes them from the
+  /// phone. Returns false when there's no [uploader] (the caller should
+  /// [share] instead); throws if the upload failed.
+  Future<bool> send() async {
+    final upload = uploader;
+    if (upload == null) return false;
+    if (_reports.isEmpty) return true;
+    final sent = _reports;
+    await upload(await uploadRows());
+    // Keep anything recorded while the upload was under way.
+    _reports = [for (final r in _reports) if (!sent.contains(r)) r];
+    _prefs.setInt(_promptedKey, _reports.length);
+    _save();
+    return true;
+  }
+
+  /// The reports as plain text, with app and device details.
+  Future<String> format() async {
+    final version = await _appVersion();
     final out = StringBuffer()
       ..writeln('${AppInfo.name} crash report')
-      ..writeln('App version: $version${kDebugMode ? ' (debug)' : ''}')
+      ..writeln('App version: $version')
       ..writeln('System: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}')
       ..writeln('Reports: ${_reports.length}');
     for (final (i, r) in _reports.reversed.indexed) {
@@ -153,6 +200,26 @@ class CrashLog extends ChangeNotifier {
     _prefs.setString(_reportsKey, jsonEncode([for (final r in _reports) r.toJson()]));
     notifyListeners();
   }
+}
+
+/// Sends the crash reports from a dialog or settings: uploads them if this
+/// build can, else (or if that fails) opens the share sheet. Tells the user
+/// how it went.
+Future<void> sendCrashReports(BuildContext context, CrashLog log) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final origin = shareOrigin(context);
+  try {
+    if (await log.send()) {
+      messenger?.showSnackBar(const SnackBar(content: Text('Thanks! The crash report was sent.')));
+      return;
+    }
+  } catch (e) {
+    debugPrint('Crash report upload failed: $e');
+    messenger?.showSnackBar(
+      const SnackBar(content: Text('Couldn\'t send the report (no connection?). You can share it instead.')),
+    );
+  }
+  await log.share(origin: origin);
 }
 
 /// The share sheet's anchor for [context]'s widget (needed on iPad).

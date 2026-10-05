@@ -15,11 +15,15 @@ class CommunityPost {
     required this.createdAt,
     this.lastMove,
     this.commentCount = 0,
+    this.authorAvatarUrl,
   });
 
   final int id;
   final String authorId;
   final String authorUsername;
+
+  /// The author's profile picture, if they set one.
+  final String? authorAvatarUrl;
 
   /// The author's text, up to [PostDraft.maxBody] characters.
   final String body;
@@ -56,6 +60,7 @@ class CommunityPost {
         bestScore: json['best_score'] as int,
         createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
         commentCount: json['comment_count'] as int? ?? 0,
+        authorAvatarUrl: json['author_avatar_url'] as String?,
       );
 }
 
@@ -105,9 +110,12 @@ class PostComment {
     required this.authorUsername,
     required this.body,
     required this.createdAt,
+    this.authorAvatarUrl,
   });
 
   static const maxBody = 500;
+
+  final String? authorAvatarUrl;
 
   final int id;
   final int postId;
@@ -123,6 +131,7 @@ class PostComment {
         authorUsername: json['author_username'] as String,
         body: json['body'] as String,
         createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+        authorAvatarUrl: json['author_avatar_url'] as String?,
       );
 }
 
@@ -136,9 +145,11 @@ class CommunityProfile {
     required this.followers,
     required this.following,
     required this.posts,
+    this.avatarUrl,
   });
 
   final String id;
+  final String? avatarUrl;
   final String username;
   final String bio;
   final int followers;
@@ -152,6 +163,7 @@ class CommunityProfile {
         followers: json['followers'] as int? ?? 0,
         following: json['following'] as int? ?? 0,
         posts: json['posts'] as int? ?? 0,
+        avatarUrl: json['avatar_url'] as String?,
       );
 }
 

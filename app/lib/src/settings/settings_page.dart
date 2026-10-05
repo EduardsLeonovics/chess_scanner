@@ -253,6 +253,35 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
               _Section(
+                icon: Icons.wallpaper_outlined,
+                title: 'App background',
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    for (final color in Appearance.backgroundPresets)
+                      _Swatch(
+                        color: color,
+                        selected: appearance.background == color,
+                        onTap: () => notifier.setBackground(color),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: () => pickColor('App background', appearance.background, notifier.setBackground),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: Appearance.backgroundPresets.contains(appearance.background) ? _line : _ink,
+                          width: Appearance.backgroundPresets.contains(appearance.background) ? 1 : 2,
+                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.colorize, size: 18, color: _ink),
+                      label: const Text('Custom', style: TextStyle(color: _ink)),
+                    ),
+                  ],
+                ),
+              ),
+              _Section(
                 icon: Icons.volume_up_outlined,
                 title: 'Sound',
                 child: SwitchListTile(
@@ -372,6 +401,45 @@ class _Choice extends StatelessWidget {
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _ink),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A round colour swatch, ringed when selected.
+class _Swatch extends StatelessWidget {
+  const _Swatch({required this.color, required this.selected, required this.onTap});
+
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Background colour',
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 40,
+          height: 40,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: selected ? _ink : _line, width: selected ? 2 : 1),
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0x33000000)),
+            ),
           ),
         ),
       ),

@@ -59,12 +59,27 @@ class Appearance {
     this.showBestMoveArrow = true,
     this.whiteOutline,
     this.blackOutline,
+    this.background = defaultBackground,
   });
 
   /// [boardThemeId] when the user picked their own square colours.
   static const customThemeId = 'custom';
   static const defaultWhitePieces = Color(0xFFFFFFFF);
   static const defaultBlackPieces = Color(0xFF000000);
+
+  /// A dark grey, light enough that black pieces off the board (e.g. in
+  /// the editor's palette) stand out against it.
+  static const defaultBackground = Color(0xFF34373C);
+
+  /// Ready-made backgrounds offered in settings.
+  static const backgroundPresets = [
+    defaultBackground,
+    Color(0xFF1F2124),
+    Color(0xFF2B3A4A),
+    Color(0xFF2E3B2F),
+    Color(0xFF4A4D52),
+    Color(0xFFECEDEF),
+  ];
 
   final String boardThemeId;
   final Color customLight;
@@ -90,6 +105,9 @@ class Appearance {
   final Color? blackOutline;
 
   static const noOutline = Color(0x00000000);
+
+  /// The app's background colour.
+  final Color background;
 
   Color? get effectiveWhiteOutline => _visible(whiteOutline);
 
@@ -118,6 +136,7 @@ class Appearance {
     bool? showBestMoveArrow,
     Color? Function()? whiteOutline,
     Color? Function()? blackOutline,
+    Color? background,
   }) {
     return Appearance(
       boardThemeId: boardThemeId ?? this.boardThemeId,
@@ -130,6 +149,7 @@ class Appearance {
       showBestMoveArrow: showBestMoveArrow ?? this.showBestMoveArrow,
       whiteOutline: whiteOutline == null ? this.whiteOutline : whiteOutline(),
       blackOutline: blackOutline == null ? this.blackOutline : blackOutline(),
+      background: background ?? this.background,
     );
   }
 
@@ -143,6 +163,7 @@ class Appearance {
   static const _bestMoveArrowKey = 'appearance.bestMoveArrow';
   static const _whiteOutlineKey = 'appearance.whiteOutline';
   static const _blackOutlineKey = 'appearance.blackOutline';
+  static const _backgroundKey = 'appearance.background';
 
   factory Appearance.fromPrefs(SharedPreferences prefs) {
     const defaults = Appearance();
@@ -166,6 +187,7 @@ class Appearance {
       showBestMoveArrow: prefs.getBool(_bestMoveArrowKey) ?? defaults.showBestMoveArrow,
       whiteOutline: color(_whiteOutlineKey),
       blackOutline: color(_blackOutlineKey),
+      background: color(_backgroundKey) ?? defaults.background,
     );
   }
 
@@ -178,6 +200,7 @@ class Appearance {
     await prefs.setInt(_blackPiecesKey, blackPieces.toARGB32());
     await prefs.setBool(_moveSoundsKey, moveSounds);
     await prefs.setBool(_bestMoveArrowKey, showBestMoveArrow);
+    await prefs.setInt(_backgroundKey, background.toARGB32());
     for (final (key, color) in [(_whiteOutlineKey, whiteOutline), (_blackOutlineKey, blackOutline)]) {
       if (color == null) {
         await prefs.remove(key);
@@ -199,7 +222,8 @@ class Appearance {
       other.moveSounds == moveSounds &&
       other.showBestMoveArrow == showBestMoveArrow &&
       other.whiteOutline == whiteOutline &&
-      other.blackOutline == blackOutline;
+      other.blackOutline == blackOutline &&
+      other.background == background;
 
   @override
   int get hashCode =>
@@ -214,6 +238,7 @@ class Appearance {
         showBestMoveArrow,
         whiteOutline,
         blackOutline,
+        background,
       );
 }
 
@@ -275,6 +300,8 @@ class AppearanceNotifier extends Notifier<Appearance> {
   void setWhiteOutline(Color? color) => _update(state.copyWith(whiteOutline: () => color));
 
   void setBlackOutline(Color? color) => _update(state.copyWith(blackOutline: () => color));
+
+  void setBackground(Color color) => _update(state.copyWith(background: color));
 
   void reset() => _update(const Appearance());
 

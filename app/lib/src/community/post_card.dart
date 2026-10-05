@@ -23,72 +23,74 @@ class PostCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final now = DateTime.now();
+    // The author sits above the post, so the text and the board get the
+    // full width and stay centred.
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          UserAvatar(username: post.authorUsername, onTap: () => openProfile(context, post.authorId)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: InkWell(
-                          onTap: () => openProfile(context, post.authorId),
-                          child: Text(
-                            '@${post.authorUsername}',
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                      Text(
-                        ' · ${timeAgo(post.createdAt, now)}',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      const Spacer(),
-                      _PostMenu(post: post),
-                    ],
-                  ),
-                  if (post.body.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(post.body, style: theme.textTheme.bodyMedium),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                UserAvatar(
+                  username: post.authorUsername,
+                  avatarUrl: post.authorAvatarUrl,
+                  radius: 16,
+                  onTap: () => openProfile(context, post.authorId),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: InkWell(
+                    onTap: () => openProfile(context, post.authorId),
+                    child: Text(
+                      '@${post.authorUsername}',
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: FeedPuzzle(post: post, size: constraints.maxWidth),
                   ),
-                  Row(
-                    children: [
-                      if (showComments)
-                        TextButton.icon(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => CommentsPage(post: post)),
-                          ),
-                          icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                          label: Text(post.commentCount == 0 ? 'Comment' : '${post.commentCount}'),
-                        ),
-                      const Spacer(),
-                      Builder(
-                        builder: (buttonContext) => IconButton(
-                          tooltip: 'Share a link',
-                          icon: const Icon(Icons.share_outlined, size: 20),
-                          onPressed: () => sharePositionLink(_puzzleFen(post), buttonContext),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                Text(
+                  ' · ${timeAgo(post.createdAt, now)}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const Spacer(),
+                _PostMenu(post: post),
+              ],
             ),
-          ),
-        ],
+            if (post.body.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 8),
+                child: Text(post.body, style: theme.textTheme.bodyMedium),
+              )
+            else
+              const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: FeedPuzzle(post: post, size: constraints.maxWidth),
+            ),
+            Row(
+              children: [
+                if (showComments)
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => CommentsPage(post: post)),
+                    ),
+                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    label: Text(post.commentCount == 0 ? 'Comment' : '${post.commentCount}'),
+                  ),
+                const Spacer(),
+                Builder(
+                  builder: (buttonContext) => IconButton(
+                    tooltip: 'Share a link',
+                    icon: const Icon(Icons.share_outlined, size: 20),
+                    onPressed: () => sharePositionLink(_puzzleFen(post), buttonContext),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -101,22 +103,28 @@ String _puzzleFen(CommunityPost post) {
   return lead != null && pos.isLegal(lead) ? pos.play(lead).fen : pos.fen;
 }
 
-/// A round avatar with the username's first letter, in a colour of its own.
+/// A round avatar: the user's picture, or else the username's first letter
+/// in a colour of its own.
 class UserAvatar extends StatelessWidget {
-  const UserAvatar({super.key, required this.username, this.radius = 20, this.onTap});
+  const UserAvatar({super.key, required this.username, this.avatarUrl, this.radius = 20, this.onTap});
 
   final String username;
+  final String? avatarUrl;
   final double radius;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final hue = (username.toLowerCase().codeUnits.fold(0, (h, c) => h * 31 + c) % 360).toDouble();
+    final url = avatarUrl;
     return GestureDetector(
       onTap: onTap,
       child: CircleAvatar(
         radius: radius,
         backgroundColor: HSLColor.fromAHSL(1, hue, 0.45, 0.4).toColor(),
+        foregroundImage: url == null ? null : NetworkImage(url),
+        // The letter shows while the picture loads, or if it fails to.
+        onForegroundImageError: url == null ? null : (_, _) {},
         child: Text(
           username.isEmpty ? '?' : username[0].toUpperCase(),
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: radius * 0.9),

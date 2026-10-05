@@ -229,6 +229,8 @@ Future<GameAnalysis> analyzeGame(
     afterScore: scoreAfter,
     mateFor: mateFor,
     book: game.initialFen == kInitialFEN ? book : null,
+    clocks: game.clocks,
+    increment: game.increment,
   );
   return GameAnalysis(puzzles, skills);
 }

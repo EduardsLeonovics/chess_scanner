@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dartchess/dartchess.dart' show Chess, Move, Position, Setup, kInitialFEN;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../accounts/accounts.dart';
 import '../accounts/game_sources.dart';
@@ -139,9 +141,28 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   /// which no analysis change affects) are kept.
   static const _dataVersion = 5;
 
+  /// What's in storage, part by part (compared by identity), so a save only
+  /// rewrites the parts that changed.
+  PuzzleLibrary? _saved;
+
+  /// A save waiting to happen, see [addGame]'s `deferSave`.
+  Timer? _saveTimer;
+  static const _saveDelay = Duration(seconds: 3);
+
+  /// Kept from [build]: the dispose hook may not use `ref`.
+  late SharedPreferences _prefs;
+
   @override
   PuzzleLibrary build() {
-    final prefs = ref.watch(sharedPreferencesProvider);
+    ref.onDispose(() {
+      // Write what's still pending; the state is gone by now, so use the
+      // copy the timer would have saved.
+      final pending = _pending;
+      _saveTimer?.cancel();
+      _saveTimer = null;
+      if (pending != null) _write(pending);
+    });
+    final prefs = _prefs = ref.watch(sharedPreferencesProvider);
     if ((prefs.getInt(_versionKey) ?? 1) < _dataVersion) {
       prefs.remove(_gamesKey);
       prefs.remove(_coverageKey);
@@ -186,7 +207,7 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
       openingGames = {for (final g in games) g.id: g};
     });
     read(_queueKey, (json) => queue = GameQueue.fromJson(json as Map<String, dynamic>));
-    return PuzzleLibrary(
+    final library = PuzzleLibrary(
       puzzles: mixPuzzles(puzzles),
       analyzedGames: (prefs.getStringList(_gamesKey) ?? const []).toSet(),
       coverage: coverage,
@@ -194,6 +215,8 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
       openingGames: openingGames,
       queue: queue,
     );
+    _saved = library;
+    return library;
   }
 
   /// Remembers the games about to be analyzed, replacing any earlier queue.
@@ -202,7 +225,11 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   /// Records that [game] was analyzed and found [found] and [skills], and
   /// takes it off the queue. A game whose analysis failed is recorded with
   /// nothing found, so it isn't downloaded again.
-  void addGame(FetchedGame game, List<Puzzle> found, [GameSkillStats? skills]) {
+  ///
+  /// With [deferSave] (game analysis, one game after another), the library
+  /// is written a few seconds later, together with the games that follow,
+  /// instead of after every game; call [flush] when the run ends.
+  void addGame(FetchedGame game, List<Puzzle> found, [GameSkillStats? skills, bool deferSave = false]) {
     final known = {for (final p in state.puzzles) p.id};
     final key = game.accountKey;
     final span = state.coverage[key];
@@ -230,7 +257,7 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
               ),
             },
       queue: () => left == null || left.isEmpty ? null : GameQueue(games: left, exhausted: queue!.exhausted),
-    ));
+    ), defer: deferSave);
   }
 
   /// Notes that everything back to the first game of [accountKey] is done.
@@ -271,28 +298,70 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   /// load starts again from the latest games.
   void deleteAll() => _save(const PuzzleLibrary());
 
-  void _save(PuzzleLibrary library) {
+  /// The library waiting for a deferred save.
+  PuzzleLibrary? _pending;
+
+  void _save(PuzzleLibrary library, {bool defer = false}) {
     state = library;
-    final prefs = ref.read(sharedPreferencesProvider);
-    prefs.setString(_puzzlesKey, jsonEncode([for (final p in library.puzzles) p.toJson()]));
-    prefs.setStringList(_gamesKey, library.analyzedGames.toList());
-    prefs.setString(
-      _coverageKey,
-      jsonEncode({for (final e in library.coverage.entries) e.key: e.value.toJson()}),
-    );
-    prefs.setString(
-      _openingsKey,
-      jsonEncode([for (final g in library.openingGames.values) g.toJson()]),
-    );
-    prefs.setString(
-      _statsKey,
-      jsonEncode({for (final e in library.gameStats.entries) e.key: e.value.toJson()}),
-    );
-    final queue = library.queue;
-    if (queue == null) {
-      prefs.remove(_queueKey);
-    } else {
-      prefs.setString(_queueKey, jsonEncode(queue.toJson()));
+    if (defer) {
+      _pending = library;
+      _saveTimer ??= Timer(_saveDelay, flush);
+      return;
+    }
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _pending = null;
+    _write(library);
+  }
+
+  /// Writes a deferred save now.
+  void flush() {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    final pending = _pending;
+    _pending = null;
+    if (pending != null) _write(pending);
+  }
+
+  /// Saves the parts of [library] that changed since the last write. The
+  /// game data grows with every analyzed game, so rewriting all of it each
+  /// time made long runs slow and could run the phone out of memory.
+  void _write(PuzzleLibrary library) {
+    final old = _saved;
+    _saved = library;
+    bool changed(Object? Function(PuzzleLibrary l) part) => old == null || !identical(part(old), part(library));
+    final prefs = _prefs;
+    if (changed((l) => l.puzzles)) {
+      prefs.setString(_puzzlesKey, jsonEncode([for (final p in library.puzzles) p.toJson()]));
+    }
+    if (changed((l) => l.analyzedGames)) {
+      prefs.setStringList(_gamesKey, library.analyzedGames.toList());
+    }
+    if (changed((l) => l.coverage)) {
+      prefs.setString(
+        _coverageKey,
+        jsonEncode({for (final e in library.coverage.entries) e.key: e.value.toJson()}),
+      );
+    }
+    if (changed((l) => l.openingGames)) {
+      prefs.setString(
+        _openingsKey,
+        jsonEncode([for (final g in library.openingGames.values) g.toJson()]),
+      );
+    }
+    if (changed((l) => l.gameStats)) {
+      prefs.setString(
+        _statsKey,
+        jsonEncode({for (final e in library.gameStats.entries) e.key: e.value.toJson()}),
+      );
+    }
+    if (changed((l) => l.queue)) {
+      final queue = library.queue;
+      if (queue == null) {
+        prefs.remove(_queueKey);
+      } else {
+        prefs.setString(_queueKey, jsonEncode(queue.toJson()));
+      }
     }
   }
 }
@@ -338,6 +407,28 @@ class PuzzleCategoriesNotifier extends Notifier<Set<PuzzleCategory>> {
   }
 }
 
+/// How many games one "load my games" downloads and analyzes. Persisted.
+/// More games take longer (roughly 5–15 seconds each, depending on the
+/// phone); whatever isn't finished continues on the next load.
+final gamesPerLoadProvider = NotifierProvider<GamesPerLoadNotifier, int>(GamesPerLoadNotifier.new);
+
+class GamesPerLoadNotifier extends Notifier<int> {
+  static const _key = 'puzzles.gamesPerLoad';
+  static const choices = [50, 100, 200, 500];
+  static const defaultCount = 100;
+
+  @override
+  int build() {
+    final saved = ref.watch(sharedPreferencesProvider).getInt(_key);
+    return choices.contains(saved) ? saved! : defaultCount;
+  }
+
+  void set(int count) {
+    state = count;
+    ref.read(sharedPreferencesProvider).setInt(_key, count);
+  }
+}
+
 /// Progress of "load my games".
 @immutable
 class GeneratorState {
@@ -371,8 +462,8 @@ final puzzleGeneratorProvider =
 /// one by one as they're analyzed, so a run cut short (app killed, Stop,
 /// engine trouble) continues where it left off: see [resume].
 class PuzzleGenerator extends Notifier<GeneratorState> {
-  /// Games downloaded per load, over all connected accounts.
-  static const gameCount = 100;
+  /// Games downloaded per load, over all connected accounts (a setting).
+  int get gameCount => ref.read(gamesPerLoadProvider);
 
   bool _cancelled = false;
 
@@ -405,6 +496,7 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
       _log(e, stack);
       state = GeneratorState(message: 'Analysis stopped: $e', warning: true);
     } finally {
+      ref.read(puzzleLibraryProvider.notifier).flush();
       if (state.running) state = const GeneratorState();
       await BackgroundWork.stop();
     }
@@ -480,14 +572,15 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
         }
         // This game can't be analyzed; don't let it block the rest.
         failed++;
-        libraryNotifier.addGame(game, const []);
+        libraryNotifier.addGame(game, const [], null, true);
       } else {
-        libraryNotifier.addGame(game, analysis.puzzles, analysis.skills);
+        libraryNotifier.addGame(game, analysis.puzzles, analysis.skills, true);
         found += analysis.puzzles.length;
       }
       done++;
     }
 
+    libraryNotifier.flush();
     // An account's history is exhausted only once all of its older games got analyzed.
     if (ref.read(puzzleLibraryProvider).queue == null) {
       for (final key in queue.exhausted) {

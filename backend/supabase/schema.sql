@@ -22,6 +22,10 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Profile picture: a public URL in the "avatars" bucket (see Storage below).
+alter table public.profiles add column if not exists avatar_url text
+  check (avatar_url is null or char_length(avatar_url) <= 500);
+
 -- Copies the username chosen at sign-up (auth metadata) into a profile.
 create or replace function public.handle_new_user()
 returns trigger
@@ -116,6 +120,34 @@ create table if not exists public.reports (
   check (post_id is not null or comment_id is not null)
 );
 
+-- "Notify me" on a profile: the subscriber hears about each new post by
+-- the author. The app shows them under the bell in the Community tab.
+create table if not exists public.post_alerts (
+  subscriber_id uuid not null references public.profiles (id) on delete cascade,
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (subscriber_id, author_id),
+  check (subscriber_id <> author_id)
+);
+
+-- Crash reports the app uploads when the user taps "Send report". Anyone
+-- may add one (crashes happen signed out too); nobody can read them
+-- through the app. Read them in the dashboard: Table Editor -> crash_reports.
+create table if not exists public.crash_reports (
+  id bigint generated always as identity primary key,
+  user_id uuid default auth.uid() references auth.users (id) on delete set null,
+  app_version text not null check (char_length(app_version) <= 50),
+  platform text not null check (char_length(platform) <= 30),
+  os_version text not null check (char_length(os_version) <= 300),
+  source text not null check (char_length(source) <= 200),
+  error text not null check (char_length(error) <= 4000),
+  stack text not null check (char_length(stack) <= 8000),
+  happened_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists crash_reports_created_idx on public.crash_reports (created_at desc);
+
 -- ---------------------------------------------------------------------------
 -- Row-level security.
 
@@ -125,6 +157,8 @@ alter table public.comments enable row level security;
 alter table public.follows enable row level security;
 alter table public.blocks enable row level security;
 alter table public.reports enable row level security;
+alter table public.post_alerts enable row level security;
+alter table public.crash_reports enable row level security;
 
 drop policy if exists "profiles readable" on public.profiles;
 create policy "profiles readable" on public.profiles
@@ -177,6 +211,50 @@ drop policy if exists "reports insertable" on public.reports;
 create policy "reports insertable" on public.reports
   for insert to authenticated with check (reporter_id = auth.uid());
 
+drop policy if exists "own alerts readable" on public.post_alerts;
+create policy "own alerts readable" on public.post_alerts
+  for select to authenticated using (subscriber_id = auth.uid());
+drop policy if exists "own alerts insertable" on public.post_alerts;
+create policy "own alerts insertable" on public.post_alerts
+  for insert to authenticated with check (subscriber_id = auth.uid());
+drop policy if exists "own alerts deletable" on public.post_alerts;
+create policy "own alerts deletable" on public.post_alerts
+  for delete to authenticated using (subscriber_id = auth.uid());
+
+drop policy if exists "crash reports insertable" on public.crash_reports;
+create policy "crash reports insertable" on public.crash_reports
+  for insert to anon, authenticated
+  with check (user_id is null or user_id = auth.uid());
+grant insert on public.crash_reports to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Storage: profile pictures, one folder per user (<user id>/avatar.jpg).
+-- Public to read, so the feed can show them; only the owner can write.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "avatars readable" on storage.objects;
+create policy "avatars readable" on storage.objects
+  for select using (bucket_id = 'avatars');
+drop policy if exists "own avatar insertable" on storage.objects;
+create policy "own avatar insertable" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "own avatar updatable" on storage.objects;
+create policy "own avatar updatable" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "own avatar deletable" on storage.objects;
+create policy "own avatar deletable" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
 -- ---------------------------------------------------------------------------
 -- What the app reads: posts and comments with their author, minus anyone
 -- the reader blocked. security_invoker makes the views obey the policies
@@ -186,7 +264,8 @@ create or replace view public.feed_posts
 with (security_invoker = true) as
   select p.*,
          a.username as author_username,
-         (select count(*) from public.comments c where c.post_id = p.id) as comment_count
+         (select count(*) from public.comments c where c.post_id = p.id) as comment_count,
+         a.avatar_url as author_avatar_url
   from public.posts p
   join public.profiles a on a.id = p.author_id
   where not exists (
@@ -196,7 +275,7 @@ with (security_invoker = true) as
 
 create or replace view public.post_comments
 with (security_invoker = true) as
-  select c.*, a.username as author_username
+  select c.*, a.username as author_username, a.avatar_url as author_avatar_url
   from public.comments c
   join public.profiles a on a.id = c.author_id
   where not exists (
@@ -209,7 +288,8 @@ with (security_invoker = true) as
   select pr.id, pr.username, pr.bio, pr.created_at,
          (select count(*) from public.follows f where f.followee_id = pr.id) as followers,
          (select count(*) from public.follows f where f.follower_id = pr.id) as following,
-         (select count(*) from public.posts p where p.author_id = pr.id) as posts
+         (select count(*) from public.posts p where p.author_id = pr.id) as posts,
+         pr.avatar_url
   from public.profiles pr;
 
 -- Deletes the caller's account and everything they posted (the app stores

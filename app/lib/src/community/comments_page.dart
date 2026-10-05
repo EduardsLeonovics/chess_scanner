@@ -145,6 +145,7 @@ class _CommentTile extends ConsumerWidget {
     return ListTile(
       leading: UserAvatar(
         username: comment.authorUsername,
+        avatarUrl: comment.authorAvatarUrl,
         radius: 16,
         onTap: () => openProfile(context, comment.authorId),
       ),

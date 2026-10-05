@@ -97,8 +97,30 @@ class PuzzleDataSection extends ConsumerWidget {
     final attempted = library.puzzles.where((p) => p.result != PuzzleResult.unsolved).length;
     final count = library.puzzles.length;
 
+    final perLoad = ref.watch(gamesPerLoadProvider);
     return Column(
       children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.download_outlined, color: _ink),
+          title: const Text('Games per load', style: TextStyle(color: _ink)),
+          subtitle: const Text(
+            'How many games "Load my games" downloads and analyzes at once. More games take '
+            'longer; an unfinished load continues next time.',
+            style: TextStyle(color: _muted),
+          ),
+          trailing: DropdownButton<int>(
+            value: perLoad,
+            underline: const SizedBox.shrink(),
+            items: [
+              for (final n in GamesPerLoadNotifier.choices)
+                DropdownMenuItem(value: n, child: Text('$n')),
+            ],
+            onChanged: (n) {
+              if (n != null) ref.read(gamesPerLoadProvider.notifier).set(n);
+            },
+          ),
+        ),
         _ActionRow(
           icon: Icons.restart_alt,
           title: 'Reset puzzle progress',
@@ -172,7 +194,18 @@ class CrashReportsSection extends ConsumerWidget {
                 builder: (buttonContext) => _ActionRow(
                   icon: Icons.send_outlined,
                   title: 'Send crash reports',
-                  subtitle: 'Opens the share sheet so you can review and send them',
+                  subtitle: log.uploader == null
+                      ? 'Opens the share sheet so you can review and send them'
+                      : 'Sends them to the developer, then deletes them from this phone',
+                  onTap: () => sendCrashReports(buttonContext, log),
+                ),
+              ),
+            if (count > 0)
+              Builder(
+                builder: (buttonContext) => _ActionRow(
+                  icon: Icons.ios_share,
+                  title: 'Share crash reports',
+                  subtitle: 'Read them, or send them yourself by email or chat',
                   onTap: () => log.share(origin: shareOrigin(buttonContext)),
                 ),
               ),

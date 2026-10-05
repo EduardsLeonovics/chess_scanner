@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'src/app_info.dart';
 import 'src/community/community_config.dart';
@@ -21,6 +22,9 @@ Future<void> main() async {
     crashLog = CrashLog(prefs)..install();
     BackgroundWork.init();
     await CommunityConfig.init();
+    if (CommunityConfig.ready) {
+      crashLog!.uploader = (rows) => Supabase.instance.client.from('crash_reports').insert(rows);
+    }
     LicenseRegistry.addLicense(() => Stream.fromIterable(const [
           LicenseEntryWithLineBreaks([AppInfo.name], AppInfo.legalese),
           LicenseEntryWithLineBreaks(
@@ -47,20 +51,27 @@ Future<void> main() async {
   });
 }
 
-class ChessGeekApp extends StatelessWidget {
+class ChessGeekApp extends ConsumerWidget {
   const ChessGeekApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final background = ref.watch(appearanceProvider.select((a) => a.background));
     return MaterialApp(
       title: AppInfo.name,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF15781B),
-          brightness: Brightness.dark,
-        ),
-      ),
+      theme: appTheme(background),
       home: const HomeShell(),
     );
   }
+}
+
+/// The app's theme on the chosen [background]: light text on dark
+/// backgrounds, dark text on light ones.
+ThemeData appTheme(Color background) {
+  final brightness = ThemeData.estimateBrightnessForColor(background);
+  final scheme = ColorScheme.fromSeed(
+    seedColor: const Color(0xFF15781B),
+    brightness: brightness,
+  ).copyWith(surface: background);
+  return ThemeData(colorScheme: scheme, scaffoldBackgroundColor: background);
 }

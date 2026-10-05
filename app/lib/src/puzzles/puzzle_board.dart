@@ -5,6 +5,7 @@ import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analysis/analysis_page.dart';
 import '../community/post_puzzle.dart';
 import '../community/share_choice.dart';
 import '../engine/engine_service.dart';
@@ -260,6 +261,19 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
     return lead == null ? start : start.play(lead);
   }
 
+  /// Opens the puzzle on the analysis board, solution ready to step
+  /// through, with the engine's lines for every position.
+  void _analyze() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => AnalysisPage(
+        initialFen: _puzzlePosition().fen,
+        initialMoves: _solution,
+        orientation: _side,
+        title: 'Puzzle analysis',
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -320,6 +334,12 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
                           : null,
                       icon: const Icon(Icons.visibility_outlined),
                       label: const Text('Show solution'),
+                    )
+                  else
+                    TextButton.icon(
+                      onPressed: _analyze,
+                      icon: const Icon(Icons.insights),
+                      label: const Text('Analyze'),
                     ),
                   const Spacer(),
                   Builder(

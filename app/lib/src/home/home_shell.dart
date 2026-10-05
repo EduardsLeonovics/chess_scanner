@@ -77,8 +77,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         title: const Text('Something went wrong'),
         content: const Text(
           'ChessGeek ran into a problem last time. Sending the crash report helps '
-          'fix it. You can read it before sending; it contains no personal data '
-          'beyond what\'s in the error itself.',
+          'fix it. It contains the error, the app version and your phone\'s system '
+          'version, and no personal data beyond what\'s in the error itself.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
@@ -86,7 +86,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ],
       ),
     );
-    if (send == true && mounted) await log.share(origin: shareOrigin(context));
+    if (send == true && mounted) await sendCrashReports(context, log);
   }
 
   @override

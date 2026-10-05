@@ -30,11 +30,28 @@ class _Ply {
 }
 
 class AnalysisPage extends ConsumerStatefulWidget {
-  const AnalysisPage({super.key, this.initialFen});
+  const AnalysisPage({
+    super.key,
+    this.initialFen,
+    this.initialMoves = const [],
+    this.orientation,
+    this.title,
+  });
 
   /// Starting position, e.g. from board recognition. Defaults to the
   /// standard starting position.
   final String? initialFen;
+
+  /// A line from [initialFen] (UCI) to step through with the arrows, e.g. a
+  /// puzzle's solution. The board starts before its first move.
+  final List<String> initialMoves;
+
+  /// Board side at the bottom; White by default.
+  final Side? orientation;
+
+  /// Set when opened on its own (e.g. from a puzzle): shows a back button
+  /// and this title instead of the scan button.
+  final String? title;
 
   @override
   ConsumerState<AnalysisPage> createState() => _AnalysisPageState();
@@ -73,6 +90,15 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
         ? Chess.initial
         : Chess.fromSetup(Setup.parseFen(widget.initialFen!));
     _history = [_Ply(start)];
+    Position pos = start;
+    for (final uci in widget.initialMoves) {
+      final move = Move.parse(uci);
+      if (move == null || !pos.isLegal(move)) break;
+      final normalized = move is NormalMove ? pos.normalizeMove(move) : move;
+      pos = pos.play(normalized);
+      _history.add(_Ply(pos, normalized));
+    }
+    _orientation = widget.orientation ?? Side.white;
     _controller = ChessboardController(game: _gameData());
     _engine = ref.read(engineProvider);
     _evalSub = _engine.evals.listen((eval) {
@@ -80,7 +106,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     });
     _analyze();
     // A link that arrived before this page was built.
-    final pending = ref.read(pendingPositionProvider);
+    final pending = widget.title == null ? ref.read(pendingPositionProvider) : null;
     if (pending != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _openLinked(pending));
     }
@@ -152,6 +178,17 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     setState(() {
       _history = [..._history.take(_cursor + 1), _Ply(next, move)];
       _cursor++;
+      _eval = null;
+    });
+    _controller.updatePosition(_gameData());
+    _analyze();
+  }
+
+  /// Shows the position [index] plies into the history.
+  void _goTo(int index) {
+    if (index < 0 || index >= _history.length || index == _cursor) return;
+    setState(() {
+      _cursor = index;
       _eval = null;
     });
     _controller.updatePosition(_gameData());
@@ -279,9 +316,11 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(pendingPositionProvider, (_, position) {
-      if (position != null) _openLinked(position);
-    });
+    if (widget.title == null) {
+      ref.listen(pendingPositionProvider, (_, position) {
+        if (position != null) _openLinked(position);
+      });
+    }
     final best = _editing ? null : _eval?.best;
     final bestMove = best == null ? null : Move.parse(best.pv.first);
     final appearance = ref.watch(appearanceProvider);
@@ -293,11 +332,14 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Scan a position',
-          icon: const Icon(Icons.photo_camera_outlined),
-          onPressed: _recognizing ? null : _scan,
-        ),
+        title: widget.title == null ? null : Text(widget.title!),
+        leading: widget.title != null
+            ? null
+            : IconButton(
+                tooltip: 'Scan a position',
+                icon: const Icon(Icons.photo_camera_outlined),
+                onPressed: _recognizing ? null : _scan,
+              ),
         actions: [
           IconButton(
             tooltip: 'Settings',
@@ -311,7 +353,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                const barWidth = 18.0;
+                const barWidth = 26.0;
                 final boardSize = math.max(
                   0.0,
                   math.min(
@@ -376,6 +418,13 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
                       onShare: _share,
                       onRotate: _rotate,
                     ),
+                    if (!_editing && _history.length > 1)
+                      _MoveNavigation(
+                        cursor: _cursor,
+                        length: _history.length,
+                        moveLabel: _cursor == 0 ? 'Start' : _sanAt(_cursor),
+                        onGoTo: _goTo,
+                      ),
                     const Divider(height: 1),
                     Expanded(
                       child: _editing
@@ -415,6 +464,15 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
         ),
       ),
     );
+  }
+
+  /// The move that led to ply [index], numbered, e.g. "12... Nf6".
+  String _sanAt(int index) {
+    final before = _history[index - 1].position;
+    final move = _history[index].move;
+    if (move == null || !before.isLegal(move)) return '';
+    final (_, san) = before.makeSan(move);
+    return '${before.fullmoves}${before.turn == Side.white ? '.' : '...'} $san';
   }
 
   Widget _buildEnginePanel() {
@@ -639,6 +697,62 @@ class _BoardControls extends StatelessWidget {
               icon: const Icon(Icons.edit_outlined),
               onPressed: onEdit,
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// First / back / forward / last through the move history, with the move
+/// just played.
+class _MoveNavigation extends StatelessWidget {
+  const _MoveNavigation({
+    required this.cursor,
+    required this.length,
+    required this.moveLabel,
+    required this.onGoTo,
+  });
+
+  final int cursor;
+  final int length;
+  final String moveLabel;
+  final ValueChanged<int> onGoTo;
+
+  @override
+  Widget build(BuildContext context) {
+    final atStart = cursor == 0;
+    final atEnd = cursor == length - 1;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'First position',
+            icon: const Icon(Icons.first_page),
+            onPressed: atStart ? null : () => onGoTo(0),
+          ),
+          IconButton(
+            tooltip: 'Previous move',
+            icon: const Icon(Icons.chevron_left),
+            onPressed: atStart ? null : () => onGoTo(cursor - 1),
+          ),
+          Expanded(
+            child: Text(
+              moveLabel,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Next move',
+            icon: const Icon(Icons.chevron_right),
+            onPressed: atEnd ? null : () => onGoTo(cursor + 1),
+          ),
+          IconButton(
+            tooltip: 'Last position',
+            icon: const Icon(Icons.last_page),
+            onPressed: atEnd ? null : () => onGoTo(length - 1),
+          ),
         ],
       ),
     );

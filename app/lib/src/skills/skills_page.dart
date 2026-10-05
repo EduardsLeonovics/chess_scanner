@@ -88,6 +88,8 @@ class _SkillsPageState extends ConsumerState<SkillsPage> {
                             expanded: _expanded == skill,
                             onTap: () => setState(() => _expanded = _expanded == skill ? null : skill),
                           ),
+                        const SizedBox(height: 24),
+                        TimeSection(profile: TimeProfile.from(stats), speed: shownSpeed),
                         if (!generator.running) ...[
                           const SizedBox(height: 12),
                           Center(
@@ -117,6 +119,100 @@ class _SkillsPageState extends ConsumerState<SkillsPage> {
             : ' · ${month(profile.from!)} – ${month(profile.to!)}');
     final kind = speed == null ? '' : ' ${speed.label.toLowerCase()}';
     return 'Based on ${profile.games} analyzed$kind game${profile.games == 1 ? '' : 's'}$range';
+  }
+}
+
+/// "Time per move": the overall average, then per opening, middlegame and
+/// endgame, as bars against the slowest phase.
+class TimeSection extends StatelessWidget {
+  const TimeSection({super.key, required this.profile, this.speed});
+
+  final TimeProfile profile;
+
+  /// The speed filter in force, if any (times only compare within one).
+  final GameSpeed? speed;
+
+  static String format(double seconds) {
+    if (seconds < 60) return '${seconds.toStringAsFixed(seconds < 10 ? 1 : 0)} s';
+    final m = seconds ~/ 60;
+    final s = (seconds - m * 60).round();
+    return '$m min ${s.toString().padLeft(2, '0')} s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final average = profile.average;
+    final phases = {for (final p in GamePhase.values) p: profile.averageIn(p)};
+    final slowest = phases.values.nonNulls.fold(0.0, math.max);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.timer_outlined, size: 20, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text('Time per move', style: theme.textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (average == null)
+              Text(
+                'Shown for games analyzed from now on: their clock times are downloaded with '
+                'them. Load more games to see how long you think in the opening, middlegame '
+                'and endgame.',
+                style: theme.textTheme.bodySmall,
+              )
+            else ...[
+              Text(format(average), style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                'on average over ${profile.totalMoves} moves in ${profile.games} '
+                '${speed == null ? '' : '${speed!.label.toLowerCase()} '}game${profile.games == 1 ? '' : 's'}',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              for (final MapEntry(key: phase, value: seconds) in phases.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      SizedBox(width: 92, child: Text(phase.label, style: theme.textTheme.bodyMedium)),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            minHeight: 10,
+                            value: seconds == null || slowest == 0 ? 0 : seconds / slowest,
+                            backgroundColor: scheme.surfaceContainerHighest,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 84,
+                        child: Text(
+                          seconds == null ? '—' : format(seconds),
+                          textAlign: TextAlign.end,
+                          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (speed == null && profile.games > 0)
+                Text(
+                  'Tip: pick a time control above; times from bullet and rapid games don\'t compare.',
+                  style: theme.textTheme.bodySmall,
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 

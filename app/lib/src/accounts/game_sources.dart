@@ -46,6 +46,8 @@ class FetchedGame {
     this.opponentRating,
     this.speed,
     this.initialFen = kInitialFEN,
+    this.clocks,
+    this.increment = 0,
   });
 
   /// Unique across sites, e.g. `lichess:abcd1234`.
@@ -65,6 +67,13 @@ class FetchedGame {
   final List<String> sanMoves;
   final String initialFen;
 
+  /// Each player's remaining time after each ply, in centiseconds (same
+  /// length as [sanMoves] or shorter), when the site recorded the clock.
+  final List<int>? clocks;
+
+  /// Seconds added after every move.
+  final int increment;
+
   String get accountKey => accountKeyOf(site, account);
 
   Map<String, dynamic> toJson() => {
@@ -79,6 +88,8 @@ class FetchedGame {
         'playedAt': playedAt.millisecondsSinceEpoch,
         'sanMoves': sanMoves,
         'initialFen': initialFen,
+        if (clocks != null) 'clocks': clocks,
+        if (increment != 0) 'increment': increment,
       };
 
   factory FetchedGame.fromJson(Map<String, dynamic> json) => FetchedGame(
@@ -96,6 +107,8 @@ class FetchedGame {
         playedAt: DateTime.fromMillisecondsSinceEpoch(json['playedAt'] as int),
         sanMoves: (json['sanMoves'] as List<dynamic>).cast<String>(),
         initialFen: json['initialFen'] as String,
+        clocks: (json['clocks'] as List<dynamic>?)?.cast<int>(),
+        increment: json['increment'] as int? ?? 0,
       );
 }
 
@@ -284,7 +297,7 @@ Future<int> _lichessStream(
     ...params,
     'max': '$max',
     'moves': 'true',
-    'clocks': 'false',
+    'clocks': 'true',
     'evals': 'false',
     'opening': 'false',
     'finished': 'true',
@@ -332,7 +345,7 @@ Future<int> _lichessStream(
             .timeout(const Duration(seconds: 30))) {
           if (line.trim().isEmpty) continue;
           received++;
-          onStatus?.call('Downloading Lichess games… $received');
+          onStatus?.call('Downloading games… $received');
           final game = _parseLichessGame(jsonDecode(line) as Map<String, dynamic>, me, username);
           if (game != null) onGame(game);
         }
@@ -368,6 +381,8 @@ FetchedGame? _parseLichessGame(Map<String, dynamic> json, String me, String user
   final user = opponent['user'] as Map<String, dynamic>?;
   final ai = opponent['aiLevel'];
   final id = json['id'] as String;
+  final clocks = (json['clocks'] as List<dynamic>?)?.whereType<int>().toList();
+  final clock = json['clock'] as Map<String, dynamic>?;
   return FetchedGame(
     id: 'lichess:$id',
     site: ChessSite.lichess,
@@ -380,6 +395,8 @@ FetchedGame? _parseLichessGame(Map<String, dynamic> json, String me, String user
     // Lichess's since/until filter on the creation time.
     playedAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
     sanMoves: moves,
+    clocks: clocks == null || clocks.isEmpty ? null : clocks,
+    increment: clock?['increment'] as int? ?? 0,
   );
 }
 
@@ -398,7 +415,7 @@ Future<GameBatch> _chessComBatch(
   final older = <FetchedGame>[];
   var reachedFirst = coverage?.reachedFirstGame ?? false;
   try {
-    onStatus?.call('Downloading Chess.com games…');
+    onStatus?.call('Downloading games…');
     final response = await _get(
       Uri.https('api.chess.com', '/pub/player/$me/games/archives'),
       client: client,
@@ -431,7 +448,7 @@ Future<GameBatch> _chessComBatch(
       final from = monthOfDate(coverage.newest);
       for (final url in archives.where((u) => monthOf(u) >= from)) {
         if (newer.length >= want) break;
-        onStatus?.call('Downloading Chess.com games… ${newer.length}');
+        onStatus?.call('Downloading games… ${newer.length}');
         for (final game in await month(url)) {
           if (game.playedAt.isAfter(coverage.newest) && newer.length < want) newer.add(game);
         }
@@ -442,7 +459,7 @@ Future<GameBatch> _chessComBatch(
       final months = archives.reversed.where((u) => before == null || monthOf(u) <= before).toList();
       var i = 0;
       for (; i < months.length && newer.length + older.length < want; i++) {
-        onStatus?.call('Downloading Chess.com games… ${newer.length + older.length}');
+        onStatus?.call('Downloading games… ${newer.length + older.length}');
         for (final game in (await month(months[i])).reversed) {
           final isOlder = coverage == null || game.playedAt.isBefore(coverage.oldest);
           if (isOlder && newer.length + older.length < want) older.add(game);
@@ -472,8 +489,24 @@ FetchedGame? _parseChessComGame(Map<String, dynamic> json, String me) {
   }
   final parsed = PgnGame.parsePgn(pgn);
   if (parsed.headers['SetUp'] == '1' || parsed.headers.containsKey('FEN')) return null;
-  final moves = [for (final node in parsed.moves.mainline()) node.san];
+  final nodes = parsed.moves.mainline().toList();
+  final moves = [for (final node in nodes) node.san];
   if (moves.length < 10) return null;
+  // "180+2": 3 minutes plus 2 seconds a move. Daily games ("1/259200")
+  // have days per move: their clock says nothing about thinking time.
+  final timeControl = json['time_control'] as String? ?? '';
+  final daily = timeControl.contains('/');
+  final increment = daily ? 0 : int.tryParse(timeControl.split('+').skip(1).firstOrNull ?? '') ?? 0;
+  List<int>? clocks;
+  if (!daily) {
+    clocks = [];
+    for (final node in nodes) {
+      final clock = node.comments?.map(PgnComment.fromPgn).map((c) => c.clock).nonNulls.firstOrNull;
+      if (clock == null) break;
+      clocks.add(clock.inMilliseconds ~/ 10);
+    }
+    if (clocks.isEmpty) clocks = null;
+  }
   final url = json['url'] as String;
   final opponent = side == Side.white ? black : white;
   return FetchedGame(
@@ -487,6 +520,8 @@ FetchedGame? _parseChessComGame(Map<String, dynamic> json, String me) {
     speed: GameSpeed.parse(json['time_class'] as String?),
     playedAt: DateTime.fromMillisecondsSinceEpoch((json['end_time'] as int) * 1000),
     sanMoves: moves,
+    clocks: clocks,
+    increment: increment,
   );
 }
 
