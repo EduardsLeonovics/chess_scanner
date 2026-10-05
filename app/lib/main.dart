@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/app_info.dart';
+import 'src/community/community_config.dart';
 import 'src/diagnostics/crash_log.dart';
 import 'src/home/home_shell.dart';
 import 'src/puzzles/background_work.dart';
@@ -19,6 +20,7 @@ Future<void> main() async {
     final prefs = await SharedPreferences.getInstance();
     crashLog = CrashLog(prefs)..install();
     BackgroundWork.init();
+    await CommunityConfig.init();
     LicenseRegistry.addLicense(() => Stream.fromIterable(const [
           LicenseEntryWithLineBreaks([AppInfo.name], AppInfo.legalese),
           LicenseEntryWithLineBreaks(

@@ -5,11 +5,11 @@ import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../board/board_setup.dart';
 import '../capture/image_capture.dart';
-import '../diagnostics/crash_log.dart' show shareOrigin;
+import '../community/post_puzzle.dart';
+import '../community/share_choice.dart';
 import '../engine/engine_service.dart';
 import '../engine/engine_settings.dart';
 import '../engine/uci.dart';
@@ -94,13 +94,15 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     _showMessage('Opened the shared position.');
   }
 
-  Future<void> _share(BuildContext buttonContext) async {
-    final link = positionLink(_pos.fen);
-    await SharePlus.instance.share(ShareParams(
-      subject: 'Chess position',
-      text: 'Analyze this position in ChessGeek: $link',
-      sharePositionOrigin: shareOrigin(buttonContext),
-    ));
+  /// Post the position to the community, or share a link to it.
+  Future<void> _share(BuildContext buttonContext) {
+    final position = _pos;
+    return showShareChoice(
+      buttonContext,
+      ref,
+      linkFen: position.fen,
+      makeDraft: () => draftFromPosition(position, _engine),
+    );
   }
 
   @override
@@ -244,9 +246,11 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     });
   }
 
-  /// Turns the pieces half a turn (see [rotateBoard]). If the result isn't
-  /// a legal position, opens it in the editor to be fixed.
+  /// Reverses the coordinates (a↔h, 1↔8, see [rotateBoard]) and flips the
+  /// view with them, so the pieces stay where they are on screen. If the
+  /// result isn't a legal position, opens it in the editor to be fixed.
   void _rotate() {
+    _orientation = _orientation.opposite;
     if (_editing) {
       setState(() => _editPieces = rotatePieces(_editPieces));
       return;
@@ -584,7 +588,7 @@ class _BoardControls extends StatelessWidget {
   /// Gets the share button's context, to anchor the share sheet.
   final ValueChanged<BuildContext> onShare;
 
-  /// Turns the pieces half a turn.
+  /// Reverses the board's coordinates, see [_AnalysisPageState._rotate].
   final VoidCallback onRotate;
 
   @override
@@ -674,9 +678,10 @@ class _SideToggle extends StatelessWidget {
   }
 }
 
-/// "Rotate": a small two-light vertical switch. Each tap turns the pieces
-/// half a turn (a-file to h-file, rank 1 to rank 8); the lit half shows
-/// whether the board is as scanned or turned.
+/// "Rotate": a small two-light vertical switch. Each tap reverses the
+/// coordinates (a-file to h-file, rank 1 to rank 8) while the pieces stay
+/// put on screen; the lit half shows whether the board is as scanned or
+/// turned.
 class _RotateSwitch extends StatefulWidget {
   const _RotateSwitch({required this.onRotate});
 
@@ -707,7 +712,7 @@ class _RotateSwitchState extends State<_RotateSwitch> {
       label: 'Rotate board',
       excludeSemantics: true,
       child: Tooltip(
-        message: 'Rotate: move every piece to the opposite square',
+        message: 'Rotate: swap a↔h and 1↔8, pieces stay where they are',
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: () {

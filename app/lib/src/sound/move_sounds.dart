@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../settings/appearance.dart';
 
-enum MoveSound { move, capture, castle, check }
+/// Board sounds; [correct] is the chime for a right move in a puzzle.
+enum MoveSound { move, capture, castle, check, correct }
 
 /// Which sound [move] makes when played from [before]. Check wins over
 /// capture and castling, like on most chess sites.
@@ -83,4 +84,10 @@ class MoveSounds {
 void playMoveSound(WidgetRef ref, Position before, Move move) {
   if (!ref.read(appearanceProvider).moveSounds) return;
   ref.read(moveSoundsProvider).play(soundFor(before, move));
+}
+
+/// Plays the chime for a right move in a puzzle, if sounds are switched on.
+void playCorrectSound(WidgetRef ref) {
+  if (!ref.read(appearanceProvider).moveSounds) return;
+  ref.read(moveSoundsProvider).play(MoveSound.correct);
 }

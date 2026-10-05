@@ -14,11 +14,13 @@ on-device Stockfish engine (eval bar + best lines, like chess.com's analysis boa
 | Chess rules / FEN    | `dartchess`                                                   |
 | Camera / gallery     | `camera`, `image_picker`                                      |
 | Vision inference     | `tflite_flutter` running models trained in `ml/`              |
+| Community            | Supabase (accounts, posts, comments, follows), `supabase_flutter` |
 
 ## Repository layout
 
 ```
 app/        Flutter application (created with `flutter create`, see below)
+backend/    Supabase schema and setup for the community (backend/supabase/README.md)
 ml/         Python: dataset tools + training for board/piece recognition models
 docs/       Design notes
 ```

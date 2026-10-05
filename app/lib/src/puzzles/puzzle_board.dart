@@ -5,6 +5,8 @@ import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../community/post_puzzle.dart';
+import '../community/share_choice.dart';
 import '../engine/engine_service.dart';
 import '../settings/appearance.dart';
 import '../sound/move_sounds.dart';
@@ -127,6 +129,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
     _apply(move);
 
     if (move == expected || _pos.isCheckmate) {
+      playCorrectSound(ref);
       _step++;
       _phase = _Phase.correct;
       _refresh();
@@ -138,6 +141,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
     _refresh();
     if (await _acceptAlternative(move)) {
       if (!mounted) return;
+      playCorrectSound(ref);
       _phase = _Phase.correct;
       _refresh();
       _advance();
@@ -173,7 +177,8 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
       _step++;
       return true;
     }
-    if (scoreOf(best, _side) >= _puzzle.bestScore - 60) {
+    final tolerance = _puzzle.kind == PuzzleKind.blunder ? PuzzleRules.blunderTolerance : 60;
+    if (scoreOf(best, _side) >= _puzzle.bestScore - tolerance) {
       _step = _solution.length;
       return true;
     }
@@ -248,6 +253,13 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
     _later(const Duration(milliseconds: 300), step);
   }
 
+  /// The position the user solves (after the opponent's lead-in move).
+  Position _puzzlePosition() {
+    final start = Chess.fromSetup(Setup.parseFen(_puzzle.fen));
+    final lead = _puzzle.lastMove == null ? null : _parse(start, _puzzle.lastMove!);
+    return lead == null ? start : start.play(lead);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -310,6 +322,18 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
                       label: const Text('Show solution'),
                     ),
                   const Spacer(),
+                  Builder(
+                    builder: (buttonContext) => IconButton(
+                      tooltip: 'Share puzzle',
+                      icon: const Icon(Icons.share_outlined),
+                      onPressed: () => showShareChoice(
+                        buttonContext,
+                        ref,
+                        linkFen: _puzzlePosition().fen,
+                        makeDraft: () async => draftFromPuzzle(_puzzle),
+                      ),
+                    ),
+                  ),
                   FilledButton.icon(
                     onPressed: () => widget.onNext(_recorded),
                     icon: const Icon(Icons.arrow_forward),

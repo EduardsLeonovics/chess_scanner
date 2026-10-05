@@ -13,6 +13,8 @@ and texture. Takes are then filtered, trimmed, layered and levelled.
   capture  a bright "tack" (piece hits piece), then the landing: punchier
   check    a wooden thud, then a hollow plank clack that rings a bit longer
   castle   two light taps, king then rook
+  correct  a quick rising chime (C-E-G), for a right move in a puzzle;
+           synthesized, no recording
 """
 
 import wave
@@ -104,6 +106,23 @@ def castle():
     return level(place((king, 0, 1.0), (rook, 95, 0.85), ms=200), -6)
 
 
+def bell(hz, ms, decay_ms):
+    """A soft mallet-on-metal note: a sine with a few quiet overtones (the
+    2.76x one is a marimba's), a 3 ms attack and an exponential decay."""
+    t = np.arange(int(ms / 1000 * RATE)) / RATE
+    tone = (np.sin(2 * np.pi * hz * t)
+            + 0.25 * np.sin(2 * np.pi * 2 * hz * t)
+            + 0.08 * np.sin(2 * np.pi * 2.76 * hz * t))
+    envelope = np.minimum(1, t / 0.003) * np.exp(-t / (decay_ms / 1000))
+    return tone * envelope
+
+
+def correct():
+    notes = [(1046.5, 0, 0.8), (1318.5, 70, 0.85), (1568.0, 140, 1.0)]
+    mix = place(*[(bell(hz, 520, 160), at, gain) for hz, at, gain in notes], ms=660)
+    return level(trim(mix, 660, 120), -5)
+
+
 def write(name, x):
     OUT.mkdir(parents=True, exist_ok=True)
     with wave.open(str(OUT / name), "wb") as w:
@@ -119,6 +138,7 @@ def main():
     write("capture.wav", capture())
     write("check.wav", check())
     write("castle.wav", castle())
+    write("correct.wav", correct())
 
 
 if __name__ == "__main__":

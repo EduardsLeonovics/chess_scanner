@@ -140,6 +140,13 @@ void main() {
       // A phone photo of a curved monitor, at an angle, with moire: found by
       // straightening the board first (perspective.dart).
       ('photo_of_monitor_angled.jpeg', '1r3r2/1pR2N1k/p1b1p1pP/4P2n/8/P7/1P6/1K3R2', false),
+      // Another monitor photo: glare breaks the outlines of the white pieces
+      // on the h-file, and its pawns match the bishop template almost as well.
+      (
+        'photo_of_monitor_glare.jpeg',
+        'r2r2k1/4ppbp/3p1np1/pq1P3P/1p1B4/1B3P2/PPPQ2P1/1K1R3R',
+        false,
+      ),
       // real_brown_board.png seen in perspective, on a grey background.
       ('real_brown_board_tilted.png', 'k1b5/pppN4/1R6/8/Q7/8/3K4/8', false),
       // Wood texture: the grain used to stick to a pawn and make it a rook.

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/analysis_page.dart';
+import '../community/community_page.dart';
 import '../diagnostics/crash_log.dart';
 import '../openings/openings_page.dart';
 import '../puzzles/puzzle_store.dart';
@@ -12,8 +13,9 @@ import '../share/position_link.dart';
 import '../skills/skills_page.dart';
 import 'books_icon.dart';
 
-/// The app's top level: four sections switched from a plain bottom bar of
-/// grey icons with small labels (scan, puzzles, openings, skills).
+/// The app's top level: five sections switched from a plain bottom bar of
+/// grey icons with small labels (scan, puzzles, community, openings,
+/// skills).
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
@@ -21,7 +23,8 @@ class HomeShell extends ConsumerStatefulWidget {
   ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-/// The tab on screen: 0 analysis, 1 puzzles, 2 openings, 3 skills.
+/// The tab on screen: 0 analysis, 1 puzzles, 2 community, 3 openings,
+/// 4 skills.
 final homeTabProvider = NotifierProvider<HomeTab, int>(HomeTab.new);
 
 class HomeTab extends Notifier<int> {
@@ -95,6 +98,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         children: const [
           AnalysisPage(),
           PuzzlesPage(),
+          CommunityPage(),
           OpeningsPage(),
           SkillsPage(),
         ],
@@ -124,6 +128,7 @@ class _NavBar extends StatelessWidget {
     final items = <(String, Widget Function(Color))>[
       ('Scan', (c) => Icon(Icons.photo_camera_outlined, color: c, size: 24)),
       ('Puzzles', (c) => Icon(Icons.extension_outlined, color: c, size: 24)),
+      ('Community', (c) => Icon(Icons.forum_outlined, color: c, size: 24)),
       ('Openings', (c) => BooksIcon(color: c, size: 24)),
       ('Skills', (c) => Icon(Icons.analytics_outlined, color: c, size: 24)),
     ];

@@ -13,7 +13,11 @@ enum PuzzleKind {
 
   /// A capture that won material, the best move, which the user missed and
   /// whose absence swung the eval against them.
-  capture('Capture a piece');
+  capture('Capture a piece'),
+
+  /// A balanced position (within ±1) where the user's move lost on the spot
+  /// (−5 or worse); the puzzle is to find a move that keeps the balance.
+  blunder('Avoid the blunder');
 
   const PuzzleKind(this.label);
 
@@ -28,7 +32,8 @@ enum PuzzleCategory {
   mateIn4('Mate in 4'),
   mateIn5('Mate in 5'),
   onlyMove('Only move'),
-  capture('Capture a piece');
+  capture('Capture a piece'),
+  blunder('Avoid the blunder');
 
   const PuzzleCategory(this.label);
 
@@ -121,6 +126,7 @@ class Puzzle {
           },
         PuzzleKind.onlyMove => PuzzleCategory.onlyMove,
         PuzzleKind.capture => PuzzleCategory.capture,
+        PuzzleKind.blunder => PuzzleCategory.blunder,
       };
 
   Puzzle withReview({

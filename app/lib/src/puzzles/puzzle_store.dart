@@ -102,7 +102,7 @@ class GameQueue {
 }
 
 /// Interleaves the categories (mate in 1, mate in 2, …, only move, capture,
-/// mate in 1, …), newest first within each, so a session isn't all one kind.
+/// blunder, mate in 1, …), newest first within each, so a session isn't all one kind.
 List<Puzzle> mixPuzzles(Iterable<Puzzle> puzzles) {
   final byCategory = {
     for (final category in PuzzleCategory.values)
@@ -133,10 +133,11 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   /// 2: games are analyzed for skills and openings too. 3: theory length
   /// counts transpositions back into the book. 4: time controls are kept,
   /// combinations count once, the end of the book isn't leaving theory, and
-  /// blunders are measured in win chance. Games analyzed under an older
-  /// version are forgotten and re-analyzed. Puzzles and the opening games
-  /// (just the moves played, which no analysis change affects) are kept.
-  static const _dataVersion = 4;
+  /// blunders are measured in win chance. 5: games yield "avoid the
+  /// blunder" puzzles. Games analyzed under an older version are forgotten
+  /// and re-analyzed. Puzzles and the opening games (just the moves played,
+  /// which no analysis change affects) are kept.
+  static const _dataVersion = 5;
 
   @override
   PuzzleLibrary build() {

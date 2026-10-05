@@ -100,6 +100,45 @@ void main() {
       expect(puzzles, isEmpty);
     });
 
+    test('finds a blunder that lost a balanced position', () async {
+      final puzzles = await findPuzzles(
+        game(kInitialFEN, ['f3', 'e5']),
+        stubEngine({
+          kInitialFEN: [line(['e2e4'], cp: 30), line(['d2d4'], cp: 25, multiPv: 2)],
+          after(kInitialFEN, 'f3'): [line(['e7e5'], cp: -650)],
+        }),
+        skipPlies: 0,
+      );
+      expect(puzzles.single.kind, PuzzleKind.blunder);
+      expect(puzzles.single.category, PuzzleCategory.blunder);
+      expect(puzzles.single.solution, ['e2e4']);
+      expect(puzzles.single.playedSan, 'f3');
+    });
+
+    test('no blunder puzzle when the move only lost a little', () async {
+      final puzzles = await findPuzzles(
+        game(kInitialFEN, ['f3', 'e5']),
+        stubEngine({
+          kInitialFEN: [line(['e2e4'], cp: 30), line(['d2d4'], cp: 25, multiPv: 2)],
+          after(kInitialFEN, 'f3'): [line(['e7e5'], cp: -350)],
+        }),
+        skipPlies: 0,
+      );
+      expect(puzzles, isEmpty);
+    });
+
+    test('no blunder puzzle when the position was not balanced before', () async {
+      final puzzles = await findPuzzles(
+        game(kInitialFEN, ['f3', 'e5']),
+        stubEngine({
+          kInitialFEN: [line(['e2e4'], cp: -180), line(['d2d4'], cp: -190, multiPv: 2)],
+          after(kInitialFEN, 'f3'): [line(['e7e5'], cp: -700)],
+        }),
+        skipPlies: 0,
+      );
+      expect(puzzles, isEmpty);
+    });
+
     test('no puzzle when the user found the best move', () async {
       const start = '4k3/8/8/3q4/8/8/3R4/4K3 w - - 0 1';
       final puzzles = await findPuzzles(

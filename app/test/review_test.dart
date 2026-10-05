@@ -152,6 +152,7 @@ void main() {
         PuzzleCategory.mateIn2,
         PuzzleCategory.mateIn3,
         PuzzleCategory.capture,
+        PuzzleCategory.blunder,
       });
     });
 

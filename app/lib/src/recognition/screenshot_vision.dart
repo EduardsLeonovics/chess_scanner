@@ -437,7 +437,7 @@ _Background _background(_Pixels p, _Grid g, int c, int r) {
 }
 
 class _SquareReading {
-  _SquareReading(this.col, this.row, this.brightness, this.ranked);
+  _SquareReading(this.col, this.row, this.brightness, this.ranked, this.shape);
 
   /// Column and row in the image, (0, 0) = top left.
   final int col;
@@ -448,7 +448,10 @@ class _SquareReading {
   final double brightness;
 
   /// Candidate roles, best first.
-  final List<(Role, double)> ranked;
+  List<(Role, double)> ranked;
+
+  /// The piece's normalized silhouette.
+  final Uint8List shape;
 
   Side color = Side.white;
 }
@@ -491,7 +494,7 @@ _SquareReading? _readSquare(
       }
     }
   }
-  final blob = _Blob.largest(_nearInk(mask, core, w, h), w, h);
+  final blob = _pieceBlob(mask, core, w, h);
   // Coordinates, move dots and other small marks are not pieces.
   if (blob == null || blob.height < h * 0.35 || blob.area < w * h * 0.05) {
     return null;
@@ -524,8 +527,41 @@ _SquareReading? _readSquare(
   // Real pieces of ordinary sets match at 0.72 or better; weaker matches
   // are overlays drawn on the board (share buttons, lens icons, arrows).
   if (ranked.first.$2 < 0.65) return null;
-  return _SquareReading(c, r, counted == 0 ? 0 : bright / counted, ranked);
+  return _SquareReading(c, r, counted == 0 ? 0 : bright / counted, ranked, shape);
 }
+
+/// Where two roles match a piece about equally well against the templates,
+/// lets the pieces that look just like it vote: all pieces in one image
+/// share a piece set, so its other pawns (say) have nearly the same
+/// silhouette, and one close call among them is outvoted by the rest.
+void _settleCloseCalls(List<_SquareReading> readings) {
+  final settled = <_SquareReading, List<(Role, double)>>{};
+  for (final s in readings) {
+    if (s.ranked.length < 2 || s.ranked[0].$2 - s.ranked[1].$2 >= 0.03) continue;
+    final peers = [
+      for (final o in readings)
+        if (!identical(o, s) && _iou(s.shape, o.shape) >= _peerIou) o,
+    ];
+    if (peers.isEmpty) continue;
+    final votes = <Role, double>{};
+    for (final o in [s, ...peers]) {
+      for (final (role, score) in o.ranked) {
+        votes[role] = (votes[role] ?? 0) + score;
+      }
+    }
+    settled[s] = [
+      for (final (role, _) in s.ranked) (role, votes[role]! / (peers.length + 1)),
+    ]..sort((a, b) => b.$2.compareTo(a.$2));
+  }
+  // Applied afterwards, so every vote counts the original readings.
+  for (final MapEntry(key: s, value: ranked) in settled.entries) {
+    s.ranked = ranked;
+  }
+}
+
+/// Least overlap of two silhouettes for them to count as the same kind of
+/// piece of one set.
+const _peerIou = 0.88;
 
 /// Splits the pieces into White and Black by brightness.
 ///
@@ -612,6 +648,48 @@ Uint8List _nearInk(Uint8List mask, Uint8List core, int w, int h) {
     if (mask[i] == 1 && dist[i] <= reach) out[i] = 1;
   }
   return out;
+}
+
+/// The piece's shape in a square: the largest blob of [mask] near ink (see
+/// [_nearInk]), with its holes filled.
+///
+/// A light piece on a light square shows only its grey outline, so it fills
+/// only if that outline is closed. Glare (e.g. on a photographed monitor)
+/// can make part of the outline too faint to count as ink, leaving a thin
+/// broken line; then the unfiltered mask, or the outline with small gaps
+/// closed, gives the shape.
+_Blob? _pieceBlob(Uint8List mask, Uint8List core, int w, int h) {
+  bool filled(_Blob blob) => blob.area >= (blob.right - blob.left + 1) * blob.height * 0.4;
+  final inked = _Blob.largest(_nearInk(mask, core, w, h), w, h);
+  if (inked == null || filled(inked)) return inked;
+  final raw = _Blob.largest(mask, w, h);
+  if (raw != null && filled(raw)) return raw;
+  final gap = math.max(2, (w * 0.05).round());
+  final closed = _Blob.largest(_dilated(inked.mask, w, h, gap), w, h);
+  final shrunk = closed == null ? null : _Blob.largest(closed.eroded(gap), w, h);
+  return shrunk != null && filled(shrunk) ? shrunk : inked;
+}
+
+/// [mask] grown by [steps] pixels (4-neighbour dilation).
+Uint8List _dilated(Uint8List mask, int w, int h, int steps) {
+  var current = mask;
+  for (var step = 0; step < steps; step++) {
+    final next = Uint8List.fromList(current);
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        final i = y * w + x;
+        if (current[i] == 1) continue;
+        if ((x > 0 && current[i - 1] == 1) ||
+            (x < w - 1 && current[i + 1] == 1) ||
+            (y > 0 && current[i - w] == 1) ||
+            (y < h - 1 && current[i + w] == 1)) {
+          next[i] = 1;
+        }
+      }
+    }
+    current = next;
+  }
+  return current;
 }
 
 double _iou(Uint8List a, Uint8List b) {
@@ -761,6 +839,7 @@ class _Blob {
 // Board assembly
 
 RecognizedBoard _assemble(List<_SquareReading> readings) {
+  _settleCloseCalls(readings);
   _assignColors(readings);
 
   // Decide which side is at the bottom: kings if we have both, otherwise

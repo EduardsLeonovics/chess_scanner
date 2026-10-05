@@ -58,19 +58,21 @@ void main() {
     expect(_toggle(tester, 0).selected, {Side.white});
   });
 
-  testWidgets('Rotate moves the pieces to the opposite squares, not the view', (tester) async {
+  testWidgets('Rotate swaps the coordinates; the pieces stay put on screen', (tester) async {
     await _pumpApp(tester);
 
-    String fen() => tester.widget<Chessboard>(find.byType(Chessboard)).controller.game.fen;
-    expect(fen(), startsWith('rnbqkbnr/pppppppp/'));
+    Chessboard board() => tester.widget<Chessboard>(find.byType(Chessboard));
+    expect(board().controller.game.fen, startsWith('rnbqkbnr/pppppppp/'));
     await tester.tap(find.bySemanticsLabel('Rotate board'));
     await tester.pump();
-    // White's pieces now stand on ranks 7-8, the king on d8.
-    expect(fen(), startsWith('RNBKQBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbkqbnr'));
-    expect(tester.widget<Chessboard>(find.byType(Chessboard)).orientation, Side.white);
+    // a1 is now h8 and so on, shown from Black's side: White's pieces are
+    // still at the bottom of the screen, only the labels changed.
+    expect(board().controller.game.fen, startsWith('RNBKQBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbkqbnr'));
+    expect(board().orientation, Side.black);
     await tester.tap(find.bySemanticsLabel('Rotate board'));
     await tester.pump();
-    expect(fen(), startsWith('rnbqkbnr/pppppppp/'));
+    expect(board().controller.game.fen, startsWith('rnbqkbnr/pppppppp/'));
+    expect(board().orientation, Side.white);
   });
 
   testWidgets('the board controls offer sharing', (tester) async {
@@ -93,7 +95,7 @@ void main() {
   testWidgets('the other tabs leave the board', (tester) async {
     await _pumpApp(tester);
 
-    for (final tab in ['Puzzles', 'Openings', 'Skills']) {
+    for (final tab in ['Puzzles', 'Community', 'Openings', 'Skills']) {
       await tester.tap(find.bySemanticsLabel(tab));
       await tester.pumpAndSettle();
       expect(find.byType(Chessboard, skipOffstage: true), findsNothing);
@@ -101,6 +103,32 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Scan'));
     await tester.pumpAndSettle();
     expect(find.byType(Chessboard), findsOneWidget);
+  });
+
+  testWidgets('Community sits between Puzzles and Openings', (tester) async {
+    await _pumpApp(tester);
+
+    double x(String tab) => tester.getCenter(find.bySemanticsLabel(tab)).dx;
+    expect(x('Puzzles'), lessThan(x('Community')));
+    expect(x('Community'), lessThan(x('Openings')));
+    await tester.tap(find.bySemanticsLabel('Community'));
+    await tester.pumpAndSettle();
+    // Tests have no community server.
+    expect(find.text('Community unavailable'), findsOneWidget);
+  });
+
+  testWidgets('Share offers posting to the community or a link', (tester) async {
+    await _pumpApp(tester);
+
+    await tester.tap(find.byTooltip('Share position'));
+    await tester.pumpAndSettle();
+    expect(find.text('Post to the ChessGeek community'), findsOneWidget);
+    expect(find.text('Share a link'), findsOneWidget);
+    // Without a community server the internal option is off.
+    final post = tester.widget<ListTile>(
+      find.ancestor(of: find.text('Post to the ChessGeek community'), matching: find.byType(ListTile)),
+    );
+    expect(post.enabled, isFalse);
   });
 
   testWidgets('settings change and remember the board theme', (tester) async {

@@ -32,9 +32,10 @@ Position positionFromBoard(Board board, Side turn) {
   );
 }
 
-/// [board] turned half a turn: every piece moves to the square opposite
-/// (a1 to h8, a8 to h1, e2 to d7, …). Fixes a scan read from the wrong
-/// side; unlike flipping the view, the pieces really change squares.
+/// [board] with its coordinates reversed: a-file and h-file swap, rank 1
+/// and rank 8 swap (a1 to h8, e2 to d7, …). Fixes a scan read from the wrong
+/// side; shown with the board's orientation flipped too, every piece stays
+/// where it was on screen and only the coordinates change.
 Board rotateBoard(Board board) {
   var rotated = Board.empty;
   for (final (square, piece) in board.pieces) {

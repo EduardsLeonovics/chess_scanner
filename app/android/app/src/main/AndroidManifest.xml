@@ -47,6 +47,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="chessgeek" android:host="position" />
             </intent-filter>
+            <!-- Community sign-up confirmation and password reset links
+                 (lib/src/community/community_config.dart). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="chessgeek" android:host="login-callback" />
+            </intent-filter>
         </activity>
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"

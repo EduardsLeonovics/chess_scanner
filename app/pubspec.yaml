@@ -48,6 +48,7 @@ dependencies:
   package_info_plus: ^10.2.1
   flutter_foreground_task: ^11.0.3
   app_links: ^7.2.1
+  supabase_flutter: ^2.18.0
 
 dev_dependencies:
   flutter_test:

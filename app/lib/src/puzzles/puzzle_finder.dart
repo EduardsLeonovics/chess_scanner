@@ -40,6 +40,16 @@ abstract final class PuzzleRules {
   /// The capture line must win at least this much material (pawns = 1).
   static const captureMinMaterial = 2;
 
+  /// Blunder rule: the position was balanced, within this either way...
+  static const balanced = 100;
+
+  /// ...and the user's move left them at this or worse.
+  static const blunderAfter = -500;
+
+  /// A blunder puzzle accepts any move within this of the best one: a
+  /// balanced position usually has several good moves.
+  static const blunderTolerance = 100;
+
   static const mateMin = 1;
   static const mateMax = 5;
 
@@ -157,11 +167,15 @@ Future<GameAnalysis> analyzeGame(
     if (quickBest == null || quickBest == played) continue;
     final quickMate = mateFor(quick, side);
     final quickScore = scoreOf(quick, side);
-    if (quickMate == null && quickScore < PuzzleRules.captureMinScore) continue;
-    final promising = quickMate != null
-        ? afterQuick < _mateScore - 1000 // user no longer has a forced mate
-        : (quickScore >= PuzzleRules.winning && afterQuick <= PuzzleRules.thrownAway + 50) ||
-            (isCapture(before, quickBest) && quickScore - afterQuick >= PuzzleRules.captureMinSwing - 50);
+    final blunder = quickMate == null &&
+        quickScore.abs() <= PuzzleRules.balanced + 50 &&
+        afterQuick <= PuzzleRules.blunderAfter + 100;
+    if (!blunder && quickMate == null && quickScore < PuzzleRules.captureMinScore) continue;
+    final promising = blunder ||
+        (quickMate != null
+            ? afterQuick < _mateScore - 1000 // user no longer has a forced mate
+            : (quickScore >= PuzzleRules.winning && afterQuick <= PuzzleRules.thrownAway + 50) ||
+                (isCapture(before, quickBest) && quickScore - afterQuick >= PuzzleRules.captureMinSwing - 50));
     if (!promising) continue;
     if (cancelled()) return const GameAnalysis([], null);
 
@@ -244,6 +258,15 @@ Future<GameAnalysis> analyzeGame(
     final line = best.pv.take(mate * 2 - 1).toList();
     if (!_endsInMate(before, line)) return null;
     return (PuzzleKind.mate, line, mate);
+  }
+
+  // Blunder: a balanced position (within ±1) that the user's move turned
+  // into −5 or worse. The solution is the best move; others that keep the
+  // balance are accepted too (see [PuzzleRules.blunderTolerance]).
+  if (mate == null &&
+      bestScore.abs() <= PuzzleRules.balanced &&
+      afterScore <= PuzzleRules.blunderAfter) {
+    return (PuzzleKind.blunder, [bestMove.uci], null);
   }
 
   // Missed winning capture: the capture is the best move and wins material,
