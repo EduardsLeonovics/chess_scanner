@@ -11,8 +11,8 @@ import '../skills/opening_book.dart';
 import '../sound/move_sounds.dart';
 import 'repertoire.dart';
 
-/// Engine results for opening positions, kept while the app runs so
-/// revisiting a position is instant.
+/// Engine results for recent opening positions, kept so revisiting a
+/// position is instant.
 final openingAnalysisProvider = Provider<OpeningAnalysis>(
   (ref) => OpeningAnalysis(ref.watch(engineProvider)),
 );
@@ -23,6 +23,10 @@ class OpeningAnalysis {
   final EngineService _engine;
   final _cache = <String, Future<EngineEval>>{};
 
+  /// Positions kept; the oldest are dropped so the cache can't grow for as
+  /// long as the app runs.
+  static const cacheSize = 500;
+
   /// Depth for the position on screen and its prepared lines.
   static const lineDepth = 16;
 
@@ -31,7 +35,10 @@ class OpeningAnalysis {
 
   Future<EngineEval> evaluate(String fen, int depth) {
     final key = '$depth|$fen';
-    return _cache[key] ??= _engine.evaluate(fen, depth: depth, urgent: true).catchError((Object e) {
+    final cached = _cache.remove(key);
+    if (cached != null) return _cache[key] = cached; // Now the newest.
+    if (_cache.length >= cacheSize) _cache.remove(_cache.keys.first);
+    return _cache[key] = _engine.evaluate(fen, depth: depth, urgent: true).catchError((Object e) {
       _cache.remove(key);
       throw e;
     });

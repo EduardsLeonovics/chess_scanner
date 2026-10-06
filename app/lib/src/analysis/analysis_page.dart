@@ -57,7 +57,7 @@ class AnalysisPage extends ConsumerStatefulWidget {
   ConsumerState<AnalysisPage> createState() => _AnalysisPageState();
 }
 
-class _AnalysisPageState extends ConsumerState<AnalysisPage> {
+class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBindingObserver {
   late final EngineService _engine;
   late final ChessboardController _controller;
   StreamSubscription<EngineEval>? _evalSub;
@@ -81,6 +81,9 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
   /// background work such as puzzle generation.
   bool _visible = true;
 
+  /// False while the app is in the background (home screen, screen off).
+  bool _foreground = true;
+
   Position get _pos => _history[_cursor].position;
 
   @override
@@ -101,6 +104,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     _orientation = widget.orientation ?? Side.white;
     _controller = ChessboardController(game: _gameData());
     _engine = ref.read(engineProvider);
+    WidgetsBinding.instance.addObserver(this);
     _evalSub = _engine.evals.listen((eval) {
       if (eval.fen == _pos.fen) setState(() => _eval = eval);
     });
@@ -145,8 +149,21 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
     }
   }
 
+  /// Live analysis runs until stopped, so stop it while the app is in the
+  /// background: the hidden tab check above doesn't notice that.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Inactive is still on screen (notification shade, a system dialog).
+    final foreground = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+    if (foreground == _foreground) return;
+    _foreground = foreground;
+    if (_editing) return;
+    _analyze();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _evalSub?.cancel();
     _engine.stop();
     _controller.dispose();
@@ -163,7 +180,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> {
       );
 
   void _analyze() {
-    if (!_visible || _pos.isGameOver) {
+    if (!_visible || !_foreground || _pos.isGameOver) {
       _engine.stop();
     } else {
       _engine.analyze(_pos.fen);
