@@ -223,21 +223,27 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   void setQueue(GameQueue? queue) => _save(state.copyWith(queue: () => queue));
 
   /// Records that [game] was analyzed and found [found] and [skills], and
-  /// takes it off the queue. A game whose analysis failed is recorded with
+  /// drops the queue once all its games are analyzed. A game whose analysis failed is recorded with
   /// nothing found, so it isn't downloaded again.
   ///
   /// With [deferSave] (game analysis, one game after another), the library
   /// is written a few seconds later, together with the games that follow,
   /// instead of after every game; call [flush] when the run ends.
   void addGame(FetchedGame game, List<Puzzle> found, [GameSkillStats? skills, bool deferSave = false]) {
-    final known = {for (final p in state.puzzles) p.id};
+    final known = found.isEmpty ? const <String>{} : {for (final p in state.puzzles) p.id};
+    final added = [for (final p in found) if (!known.contains(p.id)) p];
     final key = game.accountKey;
     final span = state.coverage[key];
+    final analyzed = {...state.analyzedGames, game.id};
+    // Everything that reads the queue skips analyzed games, so it's only
+    // dropped once all of them are done: rewriting it after every game
+    // re-saved up to hundreds of games' moves each time.
     final queue = state.queue;
-    final left = queue == null ? null : [for (final g in queue.games) if (g.id != game.id) g];
+    final queueDone = queue != null && queue.games.every((g) => analyzed.contains(g.id));
     _save(state.copyWith(
-      puzzles: mixPuzzles([...state.puzzles, ...found.where((p) => !known.contains(p.id))]),
-      analyzedGames: {...state.analyzedGames, game.id},
+      // Unchanged (and so not saved again) when the game had no new puzzles.
+      puzzles: added.isEmpty ? null : mixPuzzles([...state.puzzles, ...added]),
+      analyzedGames: analyzed,
       coverage: {
         ...state.coverage,
         key: span?.include(game.playedAt) ??
@@ -256,7 +262,7 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
                 speed: game.speed,
               ),
             },
-      queue: () => left == null || left.isEmpty ? null : GameQueue(games: left, exhausted: queue!.exhausted),
+      queue: queueDone ? () => null : null,
     ), defer: deferSave);
   }
 

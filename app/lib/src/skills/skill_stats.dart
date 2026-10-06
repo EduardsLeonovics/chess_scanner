@@ -326,7 +326,7 @@ GameSkillStats measureGame({
     final best = scan[i];
     final after = afterScore(i);
     if (best == null || after == null || best.pv.isEmpty) continue;
-    final bestMove = _parse(before, best.pv.first);
+    final bestMove = legalUciMove(before, best.pv.first);
     if (bestMove == null) continue;
     final b = scoreOf(best, side);
     final played = moves[i];
@@ -417,7 +417,7 @@ bool _deferredGain(Position start, List<String> pv, Side side) {
   var pos = start;
   final balances = <int>[];
   for (final uci in pv.take(SkillRules.tacticPlies + 1)) {
-    final move = _parse(pos, uci);
+    final move = legalUciMove(pos, uci);
     if (move == null) break;
     pos = pos.play(move);
     balances.add(materialBalance(pos, side) - base);
@@ -429,12 +429,6 @@ bool _deferredGain(Position start, List<String> pv, Side side) {
       ? math.min(balances[SkillRules.tacticPlies - 1], balances[SkillRules.tacticPlies])
       : balances.last;
   return immediate < SkillRules.tacticMaterial && settled >= SkillRules.tacticMaterial;
-}
-
-Move? _parse(Position position, String uci) {
-  final move = Move.parse(uci);
-  if (move == null || !position.isLegal(move)) return null;
-  return move is NormalMove ? position.normalizeMove(move) : move;
 }
 
 /// One skill's score with what it's based on.

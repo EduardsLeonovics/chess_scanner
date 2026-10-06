@@ -37,6 +37,12 @@ class HomeTab extends Notifier<int> {
 class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<Uri>? _links;
 
+  /// Tabs built so far. The others are built the first time they're opened,
+  /// so launching doesn't do their work (e.g. Openings loads the opening
+  /// book). Community is built from the start: it handles password-reset
+  /// links.
+  final _built = <int>{0, 2};
+
   @override
   void initState() {
     super.initState();
@@ -92,15 +98,19 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final index = ref.watch(homeTabProvider);
+    _built.add(index);
+    const tabs = [
+      AnalysisPage(),
+      PuzzlesPage(),
+      CommunityPage(),
+      OpeningsPage(),
+      SkillsPage(),
+    ];
     return Scaffold(
       body: IndexedStack(
         index: index,
-        children: const [
-          AnalysisPage(),
-          PuzzlesPage(),
-          CommunityPage(),
-          OpeningsPage(),
-          SkillsPage(),
+        children: [
+          for (var i = 0; i < tabs.length; i++) _built.contains(i) ? tabs[i] : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: _NavBar(

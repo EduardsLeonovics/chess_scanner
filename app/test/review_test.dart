@@ -169,7 +169,18 @@ void main() {
       final prefs = container.read(sharedPreferencesProvider);
       final restarted = ProviderContainer(overrides: [sharedPreferencesProvider.overrideWithValue(prefs)]);
       addTearDown(restarted.dispose);
-      expect(restarted.read(puzzleLibraryProvider).queue!.games.map((g) => g.id), ['lichess:2', 'lichess:3']);
+      final reloaded = restarted.read(puzzleLibraryProvider);
+      expect(reloaded.queuedGames, 2);
+      expect(
+        reloaded.queue!.games.where((g) => !reloaded.analyzedGames.contains(g.id)).map((g) => g.id),
+        ['lichess:2', 'lichess:3'],
+      );
+
+      // Analyzing the rest drops the queue.
+      restarted.read(puzzleLibraryProvider.notifier)
+        ..addGame(_game('lichess:2'), const [])
+        ..addGame(_game('lichess:3'), const []);
+      expect(restarted.read(puzzleLibraryProvider).queue, isNull);
     });
 
     test('a game that throws is skipped and the rest are still analyzed', () async {

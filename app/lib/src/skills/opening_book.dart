@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,5 +72,8 @@ class OpeningBook {
 }
 
 final openingBookProvider = FutureProvider<OpeningBook>((ref) async {
-  return OpeningBook.parse(await rootBundle.loadString('assets/openings/openings.tsv'));
+  final tsv = await rootBundle.loadString('assets/openings/openings.tsv');
+  // Replaying ~3,800 lines of moves takes a noticeable moment: keep it off
+  // the UI thread.
+  return Isolate.run(() => OpeningBook.parse(tsv));
 });

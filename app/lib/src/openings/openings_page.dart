@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../accounts/accounts.dart';
+import '../accounts/game_sources.dart' show GameSpeed;
 import '../home/speed_filter.dart';
 import '../puzzles/generator_banner.dart';
 import '../puzzles/puzzle_store.dart';
@@ -24,6 +25,32 @@ class OpeningsPage extends ConsumerStatefulWidget {
 class _OpeningsPageState extends ConsumerState<OpeningsPage> {
   Side? _side;
 
+  /// The families for the last inputs: grouping replays every game's
+  /// opening moves, and this page rebuilds whenever the library changes.
+  (Object, GameSpeed?, Side, OpeningBook)? _familiesFor;
+  List<OpeningFamily>? _families;
+
+  List<OpeningFamily> _familiesOf(
+    Map<String, RepertoireGame> all,
+    GameSpeed? speed,
+    List<RepertoireGame> games,
+    Side side,
+    OpeningBook book,
+  ) {
+    final key = _familiesFor;
+    final cached = _families;
+    if (cached != null &&
+        key != null &&
+        identical(key.$1, all) &&
+        key.$2 == speed &&
+        key.$3 == side &&
+        identical(key.$4, book)) {
+      return cached;
+    }
+    _familiesFor = (all, speed, side, book);
+    return _families = OpeningFamily.group(games, side, book);
+  }
+
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(accountsProvider);
@@ -31,7 +58,8 @@ class _OpeningsPageState extends ConsumerState<OpeningsPage> {
     final generator = ref.watch(puzzleGeneratorProvider);
     final book = ref.watch(openingBookProvider);
     final all = library.openingGames.values;
-    final games = filterBySpeed(ref.watch(speedFilterProvider), all, (g) => g.speed);
+    final speed = ref.watch(speedFilterProvider);
+    final games = filterBySpeed(speed, all, (g) => g.speed);
     final side = _side;
 
     return Scaffold(
@@ -67,7 +95,7 @@ class _OpeningsPageState extends ConsumerState<OpeningsPage> {
                   : switch (book) {
                       AsyncData(value: final book) => side == null
                           ? _SideChooser(games: games, onPick: (s) => setState(() => _side = s))
-                          : _FamilyList(families: OpeningFamily.group(games, side, book), side: side),
+                          : _FamilyList(families: _familiesOf(library.openingGames, speed, games, side, book), side: side),
                       AsyncError() => const Center(child: Text('The opening database couldn\'t be loaded.')),
                       _ => const Center(child: CircularProgressIndicator()),
                     },

@@ -439,8 +439,9 @@ Future<GameBatch> _chessComBatch(
           .cast<Map<String, dynamic>>();
       return [
         for (final json in games)
-          if (_parseChessComGame(json, me) case final game?)
-            if (!analyzed.contains(game.id)) game,
+          // Skip analyzed games before the costly PGN parse: the month of
+          // the newest game is downloaded again on every load.
+          if (!analyzed.contains(_chessComId(json))) ?_parseChessComGame(json, me),
       ]..sort((a, b) => a.playedAt.compareTo(b.playedAt));
     }
 
@@ -472,6 +473,9 @@ Future<GameBatch> _chessComBatch(
   }
   return GameBatch(newer: newer, older: older, reachedFirstGame: reachedFirst);
 }
+
+/// The id [_parseChessComGame] gives the game in [json].
+String _chessComId(Map<String, dynamic> json) => 'chesscom:${json['uuid'] ?? json['url']}';
 
 FetchedGame? _parseChessComGame(Map<String, dynamic> json, String me) {
   if (json['rules'] != 'chess') return null;
@@ -510,7 +514,7 @@ FetchedGame? _parseChessComGame(Map<String, dynamic> json, String me) {
   final url = json['url'] as String;
   final opponent = side == Side.white ? black : white;
   return FetchedGame(
-    id: 'chesscom:${json['uuid'] ?? url}',
+    id: _chessComId(json),
     site: ChessSite.chessCom,
     account: me,
     url: url,

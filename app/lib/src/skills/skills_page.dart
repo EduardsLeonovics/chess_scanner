@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,6 +23,20 @@ class SkillsPage extends ConsumerStatefulWidget {
 class _SkillsPageState extends ConsumerState<SkillsPage> {
   Skill? _expanded;
 
+  /// The profiles for the last stats and speed seen: they go over every
+  /// analyzed game, and this page rebuilds whenever the library changes.
+  Object? _profilesFor;
+  GameSpeed? _profilesSpeed;
+  (SkillProfile, TimeProfile)? _profiles;
+
+  (SkillProfile, TimeProfile) _profilesOf(Map<String, GameSkillStats> all, GameSpeed? speed, List<GameSkillStats> stats) {
+    final cached = _profiles;
+    if (cached != null && identical(all, _profilesFor) && speed == _profilesSpeed) return cached;
+    _profilesFor = all;
+    _profilesSpeed = speed;
+    return _profiles = (SkillProfile.from(stats), TimeProfile.from(stats));
+  }
+
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(accountsProvider);
@@ -31,7 +46,7 @@ class _SkillsPageState extends ConsumerState<SkillsPage> {
     final speed = ref.watch(speedFilterProvider);
     final stats = filterBySpeed(speed, all, (g) => g.speed);
     final shownSpeed = stats.length == all.length ? null : speed;
-    final profile = SkillProfile.from(stats);
+    final (profile, timeProfile) = _profilesOf(library.gameStats, speed, stats);
 
     return Scaffold(
       appBar: AppBar(
@@ -89,7 +104,7 @@ class _SkillsPageState extends ConsumerState<SkillsPage> {
                             onTap: () => setState(() => _expanded = _expanded == skill ? null : skill),
                           ),
                         const SizedBox(height: 24),
-                        TimeSection(profile: TimeProfile.from(stats), speed: shownSpeed),
+                        TimeSection(profile: timeProfile, speed: shownSpeed),
                         if (!generator.running) ...[
                           const SizedBox(height: 12),
                           Center(
@@ -402,7 +417,7 @@ class _RadarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RadarPainter old) =>
-      old.progress != progress || old.selected != selected || old.scores != scores || old.accent != accent;
+      old.progress != progress || old.selected != selected || !listEquals(old.scores, scores) || old.accent != accent;
 }
 
 /// One skill: score, meter, evidence, and (expanded) what it measures.
