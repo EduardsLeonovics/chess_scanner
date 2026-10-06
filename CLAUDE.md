@@ -19,7 +19,6 @@ Raise these with the user until each is done, then delete its line:
   key because `app/android/key.properties` doesn't exist. Create an upload
   key, enrol in Play App Signing, and put its SHA-256 fingerprint in
   `share_site/.well-known/assetlinks.json`.
-
 - **AdMob ids:** the app uses Google's test ids (AndroidManifest.xml,
   ios/Runner/Info.plist, `AdsConfig` in `app/lib/src/ads/ad_banner.dart`).
   Create the AdMob app and banner units and swap them in before release.
