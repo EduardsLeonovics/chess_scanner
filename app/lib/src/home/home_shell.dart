@@ -60,8 +60,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _offerCrashReport();
-      // Finish analyzing games a previous session didn't get through.
-      ref.read(puzzleGeneratorProvider.notifier).resume();
+      _offerResume();
     });
   }
 
@@ -69,6 +68,22 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   void dispose() {
     _links?.cancel();
     super.dispose();
+  }
+
+  /// Offers to finish the games a previous session didn't get through.
+  /// Never starts on its own: Stockfish only works in the background when
+  /// the user asked for it.
+  void _offerResume() {
+    final left = ref.read(puzzleGeneratorProvider.notifier).resumable;
+    if (left == 0 || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$left game${left == 1 ? '' : 's'} from your last load still to analyze.'),
+      duration: const Duration(seconds: 8),
+      action: SnackBarAction(
+        label: 'Continue',
+        onPressed: () => ref.read(puzzleGeneratorProvider.notifier).run(),
+      ),
+    ));
   }
 
   /// After a crash, asks once whether to send the report.

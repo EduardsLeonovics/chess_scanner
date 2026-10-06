@@ -508,11 +508,8 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
     }
   }
 
-  /// Continues an interrupted run, if there is one (call on app start).
-  Future<void> resume() async {
-    if (ref.read(puzzleLibraryProvider).queuedGames == 0 || !ref.read(accountsProvider).any) return;
-    await run();
-  }
+  /// Games an interrupted run left to analyze, if it can be continued.
+  int get resumable => ref.read(accountsProvider).any ? ref.read(puzzleLibraryProvider).queuedGames : 0;
 
   void _log(Object error, StackTrace stack) {
     debugPrint('Puzzle generator: $error\n$stack');
