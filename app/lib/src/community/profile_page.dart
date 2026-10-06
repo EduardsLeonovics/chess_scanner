@@ -8,6 +8,7 @@ import 'community_models.dart';
 import 'community_repository.dart';
 import 'feed_list.dart';
 import 'post_card.dart';
+import 'report_sheet.dart';
 
 /// [bytes] as a square 256-pixel JPEG for a profile picture (centre crop),
 /// or null if it isn't an image. Runs in an isolate (see [compute]).
@@ -45,6 +46,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   /// "Notify me when they post"; null on your own profile.
   bool? _alerts;
+
+  /// Whether the user blocked this person; null on your own profile.
+  bool? _blocked;
   bool _busy = false;
   String? _error;
 
@@ -61,6 +65,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     try {
       final profile = await _repo.profile(widget.userId);
       final following = _mine ? null : await _repo.isFollowing(widget.userId);
+      final blocked = _mine ? null : await _repo.isBlocked(widget.userId);
       bool? alerts;
       if (!_mine) {
         try {
@@ -74,6 +79,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         _profile = profile;
         _following = following;
         _alerts = alerts;
+        _blocked = blocked;
         _error = null;
       });
     } on CommunityException catch (e) {
@@ -201,9 +207,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
   }
 
+  Future<void> _other(_OtherAction action) async {
+    final username = _profile?.username ?? '';
+    switch (action) {
+      case _OtherAction.report:
+        await reportContent(context, ref, userId: widget.userId, username: username);
+      case _OtherAction.block:
+        await blockUser(context, ref, widget.userId, username);
+      case _OtherAction.unblock:
+        await runCommunityAction(context, () => _repo.unblock(widget.userId), done: '@$username is unblocked.');
+        ref.read(feedRevisionProvider.notifier).bump();
+    }
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = _profile;
+    final blocked = _blocked;
     return Scaffold(
       appBar: AppBar(
         title: Text(profile == null ? 'Profile' : '@${profile.username}'),
@@ -214,6 +235,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               itemBuilder: (context) => const [
                 PopupMenuItem(value: _AccountAction.signOut, child: Text('Sign out')),
                 PopupMenuItem(value: _AccountAction.delete, child: Text('Delete account')),
+              ],
+            )
+          else if (profile != null)
+            PopupMenuButton<_OtherAction>(
+              tooltip: 'More',
+              onSelected: _other,
+              itemBuilder: (context) => [
+                PopupMenuItem(value: _OtherAction.report, child: Text('Report @${profile.username}')),
+                if (blocked == true)
+                  PopupMenuItem(value: _OtherAction.unblock, child: Text('Unblock @${profile.username}'))
+                else
+                  PopupMenuItem(value: _OtherAction.block, child: Text('Block @${profile.username}')),
               ],
             ),
         ],
@@ -322,3 +355,5 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 }
+
+enum _OtherAction { report, block, unblock }

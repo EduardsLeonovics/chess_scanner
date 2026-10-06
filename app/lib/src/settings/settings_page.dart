@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../community/blocked_accounts_page.dart';
 import 'accounts_section.dart';
 import 'appearance.dart';
 import 'color_picker.dart';
@@ -311,6 +312,8 @@ class SettingsPage extends ConsumerWidget {
                   label: const Text('Reset customization to defaults'),
                 ),
               ),
+              const SettingsHeading('Community'),
+              const CommunitySafetySection(),
               const SettingsHeading('Puzzles'),
               const PuzzleDataSection(),
               const SettingsHeading('Crash reports'),

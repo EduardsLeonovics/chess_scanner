@@ -9,6 +9,7 @@ import 'community_repository.dart';
 import 'feed_list.dart';
 import 'feed_puzzle.dart';
 import 'profile_page.dart';
+import 'report_sheet.dart';
 
 /// One post in the feed: author, text, the puzzle to solve, and actions.
 class PostCard extends ConsumerWidget {
@@ -161,7 +162,8 @@ class _PostMenu extends ConsumerWidget {
       padding: EdgeInsets.zero,
       onSelected: (action) => switch (action) {
         _PostAction.delete => _delete(context, ref),
-        _PostAction.report => reportContent(context, ref, postId: post.id),
+        _PostAction.report =>
+          reportContent(context, ref, postId: post.id, userId: post.authorId, username: post.authorUsername),
         _PostAction.block => blockUser(context, ref, post.authorId, post.authorUsername),
       },
       itemBuilder: (context) => [
@@ -184,38 +186,21 @@ class _PostMenu extends ConsumerWidget {
   }
 }
 
-/// Asks why, then reports a post or comment to the project owner.
-Future<void> reportContent(BuildContext context, WidgetRef ref, {int? postId, int? commentId}) async {
-  const reasons = ['Spam', 'Abusive or hateful', 'Inappropriate', 'Something else'];
-  final reason = await showDialog<String>(
-    context: context,
-    builder: (context) => SimpleDialog(
-      title: const Text('Why are you reporting this?'),
-      children: [
-        for (final r in reasons)
-          SimpleDialogOption(onPressed: () => Navigator.pop(context, r), child: Text(r)),
-      ],
-    ),
-  );
-  if (reason == null || !context.mounted) return;
-  await runCommunityAction(
-    context,
-    () => ref.read(communityProvider)!.report(postId: postId, commentId: commentId, reason: reason),
-    done: 'Thanks, we\'ll take a look.',
-  );
-}
-
-Future<void> blockUser(BuildContext context, WidgetRef ref, String userId, String username) async {
+/// Blocks [userId] after asking. True when blocked.
+Future<bool> blockUser(BuildContext context, WidgetRef ref, String userId, String username) async {
   final sure = await confirm(
     context,
     title: 'Block @$username?',
-    message: 'You won\'t see their posts or comments any more, and you\'ll stop following them.',
+    message: 'Neither of you will see the other\'s posts or comments, and neither can comment '
+        'on, follow or get alerts from the other. They aren\'t told. You can unblock them in '
+        'Settings → Blocked accounts.',
     action: 'Block',
   );
-  if (!sure || !context.mounted) return;
-  await runCommunityAction(context, () => ref.read(communityProvider)!.block(userId),
+  if (!sure || !context.mounted) return false;
+  final ok = await runCommunityAction(context, () => ref.read(communityProvider)!.block(userId),
       done: '@$username is blocked.');
-  ref.read(feedRevisionProvider.notifier).bump();
+  if (ok) ref.read(feedRevisionProvider.notifier).bump();
+  return ok;
 }
 
 Future<bool> confirm(BuildContext context, {required String title, String? message, required String action}) async {

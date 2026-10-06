@@ -1,6 +1,9 @@
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter/foundation.dart';
 
+import '../board/board_setup.dart';
+import '../engine/uci.dart';
+
 /// A position posted to the community feed, to be solved.
 @immutable
 class CommunityPost {
@@ -47,6 +50,25 @@ class CommunityPost {
   Side get solverSide {
     final side = Setup.parseFen(fen).turn;
     return lastMove == null ? side : side.opposite;
+  }
+
+  /// The post in [json], or null if its puzzle can't be played (a broken
+  /// or impossible position, or a solution that isn't legal), so one bad
+  /// post can't break the feed.
+  static CommunityPost? tryFromJson(Map<String, dynamic> json) {
+    try {
+      final post = CommunityPost.fromJson(json);
+      if (!isAnalyzableFen(post.fen)) return null;
+      Position pos = Chess.fromSetup(Setup.parseFen(post.fen));
+      for (final uci in [?post.lastMove, ...post.solution]) {
+        final move = legalUciMove(pos, uci);
+        if (move == null) return null;
+        pos = pos.play(move);
+      }
+      return post;
+    } catch (_) {
+      return null;
+    }
   }
 
   factory CommunityPost.fromJson(Map<String, dynamic> json) => CommunityPost(
@@ -181,3 +203,35 @@ String timeAgo(DateTime time, DateTime now) {
   final date = '${months[time.month - 1]} ${time.day}';
   return time.year == now.year ? date : '$date, ${time.year}';
 }
+
+/// Why something is reported. The ids match the `reports.category` check in
+/// backend/supabase/schema.sql.
+enum ReportCategory {
+  spam('spam', 'Spam or misleading', 'Ads, repeated posts, fake engagement'),
+  toxic('toxic', 'Toxic or abusive', 'Insults, trolling, deliberately upsetting others'),
+  harassment('harassment', 'Harassment or bullying', 'Targeting, stalking or intimidating someone'),
+  hate('hate', 'Hate speech', 'Attacks on people for who they are'),
+  violence('violence', 'Violence or threats', 'Threatening or glorifying violence'),
+  sexual('sexual', 'Sexual content or nudity', 'Explicit or sexually suggestive content'),
+  childSafety('child_safety', 'Child safety', 'Anything that sexualises or endangers a minor'),
+  selfHarm('self_harm', 'Self-harm or suicide', 'Promoting or encouraging self-harm'),
+  illegal('illegal', 'Illegal activity', 'Drugs, weapons or other illegal goods or acts'),
+  scam('scam', 'Scam or fraud', 'Phishing, fake giveaways, asking for money'),
+  impersonation('impersonation', 'Impersonation', 'Pretending to be someone else'),
+  privateInfo('private_info', 'Private information', "Sharing someone's personal details"),
+  copyright('copyright', 'Copyright or trademark', "Someone else's work used without permission"),
+  cheating('cheating', 'Cheating', 'Promoting engine help in rated games'),
+  other('other', 'Something else', 'Tell us what is wrong below');
+
+  const ReportCategory(this.id, this.label, this.hint);
+
+  /// Stored in `reports.category`.
+  final String id;
+  final String label;
+
+  /// One line explaining what belongs here.
+  final String hint;
+}
+
+/// Someone the user blocked.
+typedef BlockedUser = ({String id, String username});

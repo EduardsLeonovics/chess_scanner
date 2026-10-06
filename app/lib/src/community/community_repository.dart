@@ -104,15 +104,31 @@ class CommunityRepository {
           if (!usernamePattern.hasMatch(email)) {
             throw const CommunityException('Wrong username or password.');
           }
-          final found = await _client.rpc<String?>(
-            'email_for_sign_in',
-            params: {'name': email, 'password': password},
-          );
-          if (found == null) throw const CommunityException('Wrong username or password.');
-          email = found;
+          email = await _emailForUsername(email, password);
         }
         await _client.auth.signInWithPassword(email: email, password: password);
       });
+
+  /// The email of the account [username] + [password] belong to, from the
+  /// sign-in-with-username Edge Function (which rate-limits by the caller's
+  /// real network address; see backend/supabase/functions/).
+  Future<String> _emailForUsername(String username, String password) async {
+    try {
+      final response = await _client.functions.invoke(
+        'sign-in-with-username',
+        body: {'username': username, 'password': password},
+      );
+      final email = (response.data as Map<String, dynamic>?)?['email'];
+      if (email is String) return email;
+    } on FunctionException catch (e) {
+      throw CommunityException(switch (e.status) {
+        401 => 'Wrong username or password.',
+        429 => 'Too many wrong passwords. Wait 15 minutes, or sign in with your email.',
+        _ => 'Signing in with a username isn\'t working right now. Use your email instead.',
+      });
+    }
+    throw const CommunityException('Wrong username or password.');
+  }
 
   Future<void> signOut() => _call(() => _client.auth.signOut());
 
@@ -146,14 +162,14 @@ class CommunityRepository {
         }
         if (before != null) query = query.lt('created_at', before.toUtc().toIso8601String());
         final rows = await query.order('created_at', ascending: false).limit(pageSize);
-        return rows.map(CommunityPost.fromJson).toList();
+        return [for (final row in rows) ?CommunityPost.tryFromJson(row)];
       });
 
   Future<List<CommunityPost>> postsBy(String userId, {DateTime? before}) => _call(() async {
         var query = _client.from('feed_posts').select().eq('author_id', userId);
         if (before != null) query = query.lt('created_at', before.toUtc().toIso8601String());
         final rows = await query.order('created_at', ascending: false).limit(pageSize);
-        return rows.map(CommunityPost.fromJson).toList();
+        return [for (final row in rows) ?CommunityPost.tryFromJson(row)];
       });
 
   Future<CommunityPost> createPost(PostDraft draft) => _call(() async {
@@ -269,7 +285,7 @@ class CommunityRepository {
         if (before != null) query = query.lt('created_at', before.toUtc().toIso8601String());
         if (since != null) query = query.gt('created_at', since.toUtc().toIso8601String());
         final posts = await query.order('created_at', ascending: false).limit(pageSize);
-        return posts.map(CommunityPost.fromJson).toList();
+        return [for (final row in posts) ?CommunityPost.tryFromJson(row)];
       });
 
   // -------------------------------------------------------------------------
@@ -281,14 +297,64 @@ class CommunityRepository {
         await _client.from('follows').delete().eq('follower_id', _uid).eq('followee_id', userId);
       });
 
-  Future<void> report({int? postId, int? commentId, required String reason}) => _call(
-        () => _client.from('reports').insert({
-          'reporter_id': _uid,
-          'post_id': postId,
-          'comment_id': commentId,
-          'reason': reason,
-        }),
-      );
+  Future<void> unblock(String userId) =>
+      _call(() => _client.from('blocks').delete().eq('blocker_id', _uid).eq('blocked_id', userId));
+
+  /// Whether the user blocked [userId].
+  Future<bool> isBlocked(String userId) => _call(() async {
+        final row = await _client
+            .from('blocks')
+            .select('blocked_id')
+            .eq('blocker_id', _uid)
+            .eq('blocked_id', userId)
+            .maybeSingle();
+        return row != null;
+      });
+
+  /// Everyone the user blocked, by username.
+  Future<List<BlockedUser>> blockedUsers() => _call(() async {
+        final rows = await _client
+            .from('blocks')
+            .select('blocked_id, profile:profiles!blocks_blocked_id_fkey(username)')
+            .eq('blocker_id', _uid)
+            .order('created_at', ascending: false);
+        return [
+          for (final row in rows)
+            (
+              id: row['blocked_id'] as String,
+              username: (row['profile'] as Map<String, dynamic>?)?['username'] as String? ?? '?',
+            ),
+        ];
+      });
+
+  /// Reports a post, a comment or (with only [userId]) a profile to the
+  /// moderators. The server records who wrote it and a copy of the content.
+  /// Reporting the same thing twice counts once.
+  Future<void> report({
+    int? postId,
+    int? commentId,
+    String? userId,
+    required ReportCategory category,
+    String details = '',
+  }) =>
+      _call(() async {
+        try {
+          await _client.from('reports').insert({
+            'reporter_id': _uid,
+            'post_id': postId,
+            'comment_id': commentId,
+            'reported_user_id': userId,
+            'category': category.id,
+            'reason': details.trim(),
+          });
+        } on PostgrestException catch (e) {
+          if (e.code == '23505') return; // Already reported.
+          if (e.message.contains('too_many_reports')) {
+            throw const CommunityException("You've sent a lot of reports. Try again in an hour.");
+          }
+          rethrow;
+        }
+      });
 }
 
 String _authMessage(AuthException e) {
@@ -309,6 +375,5 @@ String _dbMessage(PostgrestException e) => switch (e.code) {
       '23514' => 'That is too long or not allowed.',
       'PGRST116' => 'That post or profile no longer exists.',
       '42501' => 'You can\'t do that.',
-      'P0001' when e.message.contains('too_many_attempts') => 'Too many wrong passwords. Wait 15 minutes.',
       _ => 'Something went wrong on the server (${e.code ?? e.message}).',
     };

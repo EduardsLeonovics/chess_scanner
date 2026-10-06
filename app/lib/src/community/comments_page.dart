@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'community_models.dart';
 import 'community_repository.dart';
 import 'post_card.dart';
+import 'report_sheet.dart';
 
 /// A post with its comments, and a box to add one.
 class CommentsPage extends ConsumerStatefulWidget {
@@ -89,7 +90,8 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                           textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
                     )
                   else
-                    for (final comment in comments) _CommentTile(comment: comment, onChanged: _load),
+                    for (final comment in comments)
+                      _CommentTile(comment: comment, postAuthorId: widget.post.authorId, onChanged: _load),
                 ],
               ),
             ),
@@ -133,15 +135,20 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
 enum _CommentAction { delete, report, block }
 
 class _CommentTile extends ConsumerWidget {
-  const _CommentTile({required this.comment, required this.onChanged});
+  const _CommentTile({required this.comment, required this.postAuthorId, required this.onChanged});
 
   final PostComment comment;
+
+  /// Whoever wrote the post: they can remove any comment under it.
+  final String postAuthorId;
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final mine = ref.watch(communityProvider)?.user?.id == comment.authorId;
+    final me = ref.watch(communityProvider)?.user?.id;
+    final mine = me == comment.authorId;
+    final canDelete = mine || me == postAuthorId;
     return ListTile(
       leading: UserAvatar(
         username: comment.authorUsername,
@@ -170,16 +177,22 @@ class _CommentTile extends ConsumerWidget {
                 onChanged();
               }
             case _CommentAction.report:
-              await reportContent(context, ref, commentId: comment.id);
+              if (await reportContent(
+                context,
+                ref,
+                commentId: comment.id,
+                userId: comment.authorId,
+                username: comment.authorUsername,
+              )) {
+                onChanged();
+              }
             case _CommentAction.block:
-              await blockUser(context, ref, comment.authorId, comment.authorUsername);
-              onChanged();
+              if (await blockUser(context, ref, comment.authorId, comment.authorUsername)) onChanged();
           }
         },
         itemBuilder: (context) => [
-          if (mine)
-            const PopupMenuItem(value: _CommentAction.delete, child: Text('Delete comment'))
-          else ...[
+          if (canDelete) const PopupMenuItem(value: _CommentAction.delete, child: Text('Delete comment')),
+          if (!mine) ...[
             const PopupMenuItem(value: _CommentAction.report, child: Text('Report comment')),
             PopupMenuItem(value: _CommentAction.block, child: Text('Block @${comment.authorUsername}')),
           ],

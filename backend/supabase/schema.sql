@@ -56,13 +56,20 @@ as $$
      and not exists (select 1 from public.profiles where username = name::citext);
 $$;
 
--- Signing in with a username: Supabase Auth only takes an email, so the app
--- first trades username + password for the account's email here. The email
--- is returned only when the password is right (so this can't be used to
--- collect addresses). Wrong passwords are limited per network address: 10
--- for one username and 30 in all per 15 minutes, so it can't be used to
--- guess passwords faster than Auth's own limits allow, and a stranger can't
--- lock anyone else out.
+-- Signing in with a username: Supabase Auth only takes an email, so the
+-- app first trades username + password for the account's email. It does
+-- that through the sign-in-with-username Edge Function
+-- (backend/supabase/functions/), which passes the caller's network address
+-- as Supabase's proxy saw it; only that function may call this, so the
+-- address can't be faked. The email is returned only when the password is
+-- right, so this can't be used to collect addresses.
+--
+-- Wrong passwords are limited, and checked before any password hashing so
+-- floods stay cheap:
+--   * 10 per username from one address and 30 per address, per 15 minutes;
+--   * 50 per username from all addresses per hour, against guessing spread
+--     over many addresses. That only blocks signing in by username: the
+--     owner can still sign in with their email meanwhile.
 create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.sign_in_failures (
@@ -72,8 +79,12 @@ create table if not exists public.sign_in_failures (
 alter table public.sign_in_failures add column if not exists ip text not null default '';
 drop index if exists public.sign_in_failures_idx;
 create index if not exists sign_in_failures_ip_idx on public.sign_in_failures (ip, at);
+create index if not exists sign_in_failures_name_idx on public.sign_in_failures (username, at);
 
-create or replace function public.email_for_sign_in(name text, password text)
+-- The earlier version took the address from a header the caller controls.
+drop function if exists public.email_for_sign_in(text, text);
+
+create or replace function public.email_for_sign_in(name text, password text, caller_ip text)
 returns text
 language plpgsql
 volatile
@@ -82,14 +93,17 @@ as $$
 declare
   found_email text;
   hash text;
-  caller text := coalesce(
-    split_part(current_setting('request.headers', true)::json ->> 'x-forwarded-for', ',', 1),
-    '');
 begin
-  delete from public.sign_in_failures where at < now() - interval '15 minutes';
-  if (select count(*) from public.sign_in_failures where ip = caller) >= 30
+  if name is null or password is null or coalesce(caller_ip, '') = '' then
+    return null;
+  end if;
+  delete from public.sign_in_failures where at < now() - interval '1 hour';
+  if (select count(*) from public.sign_in_failures
+      where ip = caller_ip and at > now() - interval '15 minutes') >= 30
      or (select count(*) from public.sign_in_failures
-         where ip = caller and username = name::citext) >= 10 then
+         where ip = caller_ip and username = name::citext
+           and at > now() - interval '15 minutes') >= 10
+     or (select count(*) from public.sign_in_failures where username = name::citext) >= 50 then
     raise exception 'too_many_attempts' using errcode = 'P0001';
   end if;
   select u.email, u.encrypted_password into found_email, hash
@@ -100,10 +114,10 @@ begin
     return null;
   end if;
   if hash = extensions.crypt(password, hash) then
-    delete from public.sign_in_failures where ip = caller and username = name::citext;
+    delete from public.sign_in_failures where ip = caller_ip and username = name::citext;
     return found_email;
   end if;
-  insert into public.sign_in_failures (username, ip) values (name::citext, caller);
+  insert into public.sign_in_failures (username, ip) values (name::citext, caller_ip);
   return null;
 end;
 $$;
@@ -160,17 +174,126 @@ create table if not exists public.blocks (
   check (blocker_id <> blocked_id)
 );
 
--- Reports go to the project owner (Table Editor -> reports); nobody can
--- read them through the app.
+-- Whether the signed-in user and [other] have blocked each other, in either
+-- direction. Security definer, because users can only read their own
+-- blocks; this answers yes or no without showing who blocked whom.
+create or replace function public.blocked_between(other uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.blocks b
+    where (b.blocker_id = auth.uid() and b.blocked_id = other)
+       or (b.blocker_id = other and b.blocked_id = auth.uid())
+  );
+$$;
+
+-- Blocking ends follows and post alerts both ways.
+create or replace function public.after_block()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  delete from public.follows
+    where (follower_id = new.blocker_id and followee_id = new.blocked_id)
+       or (follower_id = new.blocked_id and followee_id = new.blocker_id);
+  delete from public.post_alerts
+    where (subscriber_id = new.blocker_id and author_id = new.blocked_id)
+       or (subscriber_id = new.blocked_id and author_id = new.blocker_id);
+  return new;
+end;
+$$;
+
+drop trigger if exists after_block on public.blocks;
+create trigger after_block
+  after insert on public.blocks
+  for each row execute function public.after_block();
+
+-- Reports go to the project owner (the moderation_queue view, see
+-- README.md); nobody can read them through the app. A report is about a
+-- post, a comment or a profile. prepare_report fills in who was reported
+-- and a copy of what they wrote, so the evidence survives the content (or
+-- the account) being deleted.
 create table if not exists public.reports (
   id bigint generated always as identity primary key,
   reporter_id uuid not null references public.profiles (id) on delete cascade,
-  post_id bigint references public.posts (id) on delete cascade,
-  comment_id bigint references public.comments (id) on delete cascade,
-  reason text not null check (char_length(reason) <= 500),
-  created_at timestamptz not null default now(),
-  check (post_id is not null or comment_id is not null)
+  post_id bigint references public.posts (id) on delete set null,
+  comment_id bigint references public.comments (id) on delete set null,
+  reason text not null default '' check (char_length(reason) <= 500),
+  created_at timestamptz not null default now()
 );
+-- Upgrades from the first version of this table.
+alter table public.reports add column if not exists reported_user_id uuid
+  references public.profiles (id) on delete set null;
+alter table public.reports add column if not exists reported_username text;
+alter table public.reports add column if not exists content_snapshot text;
+alter table public.reports add column if not exists category text not null default 'other';
+alter table public.reports add column if not exists status text not null default 'open';
+alter table public.reports add column if not exists moderator_note text;
+alter table public.reports alter column reason set default '';
+alter table public.reports drop constraint if exists reports_check;
+alter table public.reports drop constraint if exists reports_post_id_fkey;
+alter table public.reports add constraint reports_post_id_fkey
+  foreign key (post_id) references public.posts (id) on delete set null;
+alter table public.reports drop constraint if exists reports_comment_id_fkey;
+alter table public.reports add constraint reports_comment_id_fkey
+  foreign key (comment_id) references public.comments (id) on delete set null;
+alter table public.reports drop constraint if exists reports_category_check;
+alter table public.reports add constraint reports_category_check check (category in (
+  'spam', 'toxic', 'harassment', 'hate', 'violence', 'sexual', 'child_safety', 'self_harm',
+  'illegal', 'scam', 'impersonation', 'private_info', 'copyright', 'cheating', 'other'));
+alter table public.reports drop constraint if exists reports_status_check;
+alter table public.reports add constraint reports_status_check
+  check (status in ('open', 'actioned', 'dismissed'));
+-- One report per reporter per thing.
+create unique index if not exists reports_once on public.reports
+  (reporter_id, post_id, comment_id, reported_user_id) nulls not distinct;
+create index if not exists reports_open_idx on public.reports (status, created_at);
+
+create or replace function public.prepare_report()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if new.post_id is null and new.comment_id is null and new.reported_user_id is null then
+    raise exception 'A report needs a post, a comment or a user';
+  end if;
+  if (select count(*) from public.reports
+      where reporter_id = new.reporter_id and created_at > now() - interval '1 hour') >= 20 then
+    raise exception 'too_many_reports' using errcode = 'P0001';
+  end if;
+  -- Set by the server, whatever the app sent.
+  new.status := 'open';
+  new.moderator_note := null;
+  new.created_at := now();
+  if new.comment_id is not null then
+    select c.author_id, c.body into new.reported_user_id, new.content_snapshot
+      from public.comments c where c.id = new.comment_id;
+  elsif new.post_id is not null then
+    select p.author_id, 'Post: ' || p.body || ' (FEN ' || p.fen || ')'
+      into new.reported_user_id, new.content_snapshot
+      from public.posts p where p.id = new.post_id;
+  else
+    select 'Profile bio: ' || pr.bio || coalesce(' / avatar: ' || pr.avatar_url, '')
+      into new.content_snapshot
+      from public.profiles pr where pr.id = new.reported_user_id;
+  end if;
+  if new.reported_user_id = new.reporter_id then
+    raise exception 'own_content' using errcode = 'P0001';
+  end if;
+  select username into new.reported_username from public.profiles where id = new.reported_user_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists prepare_report on public.reports;
+create trigger prepare_report
+  before insert on public.reports
+  for each row execute function public.prepare_report();
 
 -- "Notify me" on a profile: the subscriber hears about each new post by
 -- the author. The app shows them under the bell in the Community tab.
@@ -236,17 +359,29 @@ create policy "comments readable" on public.comments
   for select to authenticated using (true);
 drop policy if exists "own comments insertable" on public.comments;
 create policy "own comments insertable" on public.comments
-  for insert to authenticated with check (author_id = auth.uid());
+  for insert to authenticated with check (
+    author_id = auth.uid()
+    and not exists (
+      select 1 from public.posts p where p.id = post_id and public.blocked_between(p.author_id)
+    )
+  );
 drop policy if exists "own comments deletable" on public.comments;
 create policy "own comments deletable" on public.comments
   for delete to authenticated using (author_id = auth.uid());
+-- Authors can remove comments under their own posts.
+drop policy if exists "comments on own posts deletable" on public.comments;
+create policy "comments on own posts deletable" on public.comments
+  for delete to authenticated using (
+    exists (select 1 from public.posts p where p.id = post_id and p.author_id = auth.uid())
+  );
 
 drop policy if exists "follows readable" on public.follows;
 create policy "follows readable" on public.follows
   for select to authenticated using (true);
 drop policy if exists "own follows insertable" on public.follows;
 create policy "own follows insertable" on public.follows
-  for insert to authenticated with check (follower_id = auth.uid());
+  for insert to authenticated
+  with check (follower_id = auth.uid() and not public.blocked_between(followee_id));
 drop policy if exists "own follows deletable" on public.follows;
 create policy "own follows deletable" on public.follows
   for delete to authenticated using (follower_id = auth.uid());
@@ -270,7 +405,8 @@ create policy "own alerts readable" on public.post_alerts
   for select to authenticated using (subscriber_id = auth.uid());
 drop policy if exists "own alerts insertable" on public.post_alerts;
 create policy "own alerts insertable" on public.post_alerts
-  for insert to authenticated with check (subscriber_id = auth.uid());
+  for insert to authenticated
+  with check (subscriber_id = auth.uid() and not public.blocked_between(author_id));
 drop policy if exists "own alerts deletable" on public.post_alerts;
 create policy "own alerts deletable" on public.post_alerts
   for delete to authenticated using (subscriber_id = auth.uid());
@@ -280,6 +416,35 @@ create policy "crash reports insertable" on public.crash_reports
   for insert to anon, authenticated
   with check (user_id is null or user_id = auth.uid());
 grant insert on public.crash_reports to anon, authenticated;
+
+-- A post's position and solution must at least be well formed, so one
+-- broken post can't break everyone's feed. NOT VALID: rows from before
+-- this check aren't re-checked (the app skips any that don't parse).
+alter table public.posts drop constraint if exists posts_fen_format;
+alter table public.posts add constraint posts_fen_format check (
+  fen ~ '^[1-8pnbrqkPNBRQK]{1,8}(/[1-8pnbrqkPNBRQK]{1,8}){7} [wb] (-|[KQkq]{1,4}) (-|[a-h][36]) [0-9]{1,3} [0-9]{1,4}$'
+) not valid;
+alter table public.posts drop constraint if exists posts_solution_format;
+alter table public.posts add constraint posts_solution_format check (
+  array_to_string(solution, ',') ~ '^[a-h][1-8][a-h][1-8][qrbn]?(,[a-h][1-8][a-h][1-8][qrbn]?)*$'
+) not valid;
+
+-- ---------------------------------------------------------------------------
+-- Moderation: open reports, child-safety reports first, then newest, with
+-- what was reported and how often that user has been reported. For the
+-- project owner only (dashboard Table/SQL Editor); the app can't read it.
+create or replace view public.moderation_queue as
+  select r.id, r.created_at, r.category, r.reason as details,
+         r.reported_username, r.content_snapshot,
+         r.post_id, r.comment_id, r.reported_user_id,
+         reporter.username as reported_by,
+         (select count(*) from public.reports o
+          where o.reported_user_id = r.reported_user_id) as reports_against_user
+  from public.reports r
+  left join public.profiles reporter on reporter.id = r.reporter_id
+  where r.status = 'open'
+  order by r.category = 'child_safety' desc, r.created_at desc;
+revoke all on public.moderation_queue from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Storage: profile pictures, one folder per user (<user id>/avatar.jpg).
@@ -311,7 +476,7 @@ create policy "own avatar deletable" on storage.objects
 
 -- ---------------------------------------------------------------------------
 -- What the app reads: posts and comments with their author, minus anyone
--- the reader blocked. security_invoker makes the views obey the policies
+-- the reader blocked or was blocked by. security_invoker makes the views obey the policies
 -- above for the user asking.
 
 create or replace view public.feed_posts
@@ -322,20 +487,14 @@ with (security_invoker = true) as
          a.avatar_url as author_avatar_url
   from public.posts p
   join public.profiles a on a.id = p.author_id
-  where not exists (
-    select 1 from public.blocks b
-    where b.blocker_id = auth.uid() and b.blocked_id = p.author_id
-  );
+  where not public.blocked_between(p.author_id);
 
 create or replace view public.post_comments
 with (security_invoker = true) as
   select c.*, a.username as author_username, a.avatar_url as author_avatar_url
   from public.comments c
   join public.profiles a on a.id = c.author_id
-  where not exists (
-    select 1 from public.blocks b
-    where b.blocker_id = auth.uid() and b.blocked_id = c.author_id
-  );
+  where not public.blocked_between(c.author_id);
 
 create or replace view public.profile_stats
 with (security_invoker = true) as
@@ -359,5 +518,6 @@ $$;
 revoke execute on function public.delete_account() from public, anon;
 grant execute on function public.delete_account() to authenticated;
 grant execute on function public.username_available(text) to anon, authenticated;
-revoke execute on function public.email_for_sign_in(text, text) from public;
-grant execute on function public.email_for_sign_in(text, text) to anon, authenticated;
+-- Only the sign-in-with-username Edge Function (service role) may call it.
+revoke execute on function public.email_for_sign_in(text, text, text) from public, anon, authenticated;
+grant execute on function public.email_for_sign_in(text, text, text) to service_role;

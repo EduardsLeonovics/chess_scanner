@@ -1,3 +1,5 @@
+import 'dart:io' as io;
+
 import 'package:chess_scanner/src/accounts/accounts.dart';
 import 'package:chess_scanner/src/community/community_models.dart';
 import 'package:chess_scanner/src/community/post_puzzle.dart';
@@ -83,6 +85,41 @@ void main() {
     expect(post.commentCount, 3);
     expect(post.solverSide, Side.black);
     expect(post.createdAt.isUtc, isFalse);
+  });
+
+  group('broken posts are skipped instead of breaking the feed', () {
+    Map<String, dynamic> row({String? fen, String? lastMove = 'e2e4', List<String> solution = const ['e7e5']}) => {
+          'id': 8,
+          'author_id': 'u1',
+          'author_username': 'someone',
+          'fen': fen ?? Chess.initial.fen,
+          'last_move': lastMove,
+          'solution': solution,
+          'best_score': 20,
+          'created_at': '2026-10-05T12:00:00Z',
+        };
+
+    test('a playable post is kept', () {
+      expect(CommunityPost.tryFromJson(row()), isNotNull);
+    });
+
+    test('unreadable, impossible or unplayable posts are dropped', () {
+      expect(CommunityPost.tryFromJson(row(fen: 'x')), isNull);
+      expect(CommunityPost.tryFromJson(row(fen: '8/8/8/8/8/8/8/8 w - - 0 1')), isNull);
+      expect(
+        CommunityPost.tryFromJson(row(fen: 'rnbqkbnr/pppppppp/8/8/8/P7/PPPPPPPP/RNBQKBNR w KQkq - 0 1')),
+        isNull,
+      );
+      expect(CommunityPost.tryFromJson(row(solution: ['e7e4'])), isNull);
+      expect(CommunityPost.tryFromJson({'id': 'not a number'}), isNull);
+    });
+  });
+
+  test('report categories match the server', () {
+    final schema = io.File('../backend/supabase/schema.sql').readAsStringSync();
+    final check = RegExp(r'reports_category_check check \(category in \(([^)]*)\)\)').firstMatch(schema)!;
+    final server = RegExp(r"'([a-z_]+)'").allMatches(check.group(1)!).map((m) => m.group(1)).toSet();
+    expect({for (final c in ReportCategory.values) c.id}, server);
   });
 
   test('timeAgo reads like a feed', () {
