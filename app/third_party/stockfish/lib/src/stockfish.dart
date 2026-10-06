@@ -57,7 +57,7 @@ class Stockfish {
   /// Owner must [dispose] it before a new instance can be created.
   factory Stockfish() {
     if (_instance != null) {
-      throw new StateError('Multiple instances are not supported, yet.');
+      throw StateError('Multiple instances are not supported, yet.');
     }
 
     _instance = Stockfish._();
@@ -121,7 +121,7 @@ class _StockfishState extends ChangeNotifier
   @override
   StockfishState get value => _value;
 
-  _setValue(StockfishState v) {
+  void _setValue(StockfishState v) {
     if (v == _value) return;
     _value = v;
     notifyListeners();

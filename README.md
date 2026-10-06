@@ -9,11 +9,11 @@ on-device Stockfish engine (eval bar + best lines, like chess.com's analysis boa
 | Concern              | Choice                                                        |
 |----------------------|---------------------------------------------------------------|
 | App framework        | Flutter (Dart) — one codebase for Android and iOS             |
-| Engine               | `stockfish` pub package (native Stockfish, runs on device)    |
+| Engine               | Stockfish, vendored in `app/third_party/stockfish` (native, on device) |
 | Board UI             | `chessground` (Lichess's board widget)                        |
 | Chess rules / FEN    | `dartchess`                                                   |
-| Camera / gallery     | `camera`, `image_picker`                                      |
-| Vision inference     | `tflite_flutter` running models trained in `ml/`              |
+| Camera / gallery     | `image_picker`                                                |
+| Vision               | Classic CV + piece templates in pure Dart (`image` package), no ML model yet |
 | Community            | Supabase (accounts, posts, comments, follows), `supabase_flutter` |
 
 ## Repository layout
@@ -21,8 +21,7 @@ on-device Stockfish engine (eval bar + best lines, like chess.com's analysis boa
 ```
 app/        Flutter application (created with `flutter create`, see below)
 backend/    Supabase schema and setup for the community (backend/supabase/README.md)
-ml/         Python: dataset tools + training for board/piece recognition models
-docs/       Design notes
+ml/         Plans for trained recognition models (no code yet, see ml/README.md)
 ```
 
 ## Recognition pipeline

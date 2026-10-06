@@ -163,7 +163,7 @@ Future<GameAnalysis> analyzeGame(
     final afterQuick = scoreAfter(i);
     if (quick == null || afterQuick == null) continue;
     final played = moves[i];
-    final quickBest = _parse(before, quick.pv.first);
+    final quickBest = legalUciMove(before, quick.pv.first);
     if (quickBest == null || quickBest == played) continue;
     final quickMate = mateFor(quick, side);
     final quickScore = scoreOf(quick, side);
@@ -248,7 +248,7 @@ Future<GameAnalysis> analyzeGame(
   required int afterScore,
   required Side side,
 }) {
-  final bestMove = _parse(before, best.pv.first);
+  final bestMove = legalUciMove(before, best.pv.first);
   if (bestMove == null || bestMove == played) return null;
   final bestScore = scoreOf(best, side);
   final mate = mateFor(best, side);
@@ -321,16 +321,10 @@ Future<int?> _deepScoreAfter(Position after, Side side, Evaluate evaluate) async
 
 /// Parses and normalizes a UCI move (castling as king-takes-rook) so it can
 /// be compared with moves parsed from SAN.
-Move? _parse(Position position, String uci) {
-  final move = Move.parse(uci);
-  if (move == null || !position.isLegal(move)) return null;
-  return move is NormalMove ? position.normalizeMove(move) : move;
-}
-
 bool _endsInMate(Position start, List<String> line) {
   var pos = start;
   for (final uci in line) {
-    final move = _parse(pos, uci);
+    final move = legalUciMove(pos, uci);
     if (move == null) return false;
     pos = pos.play(move);
   }
@@ -344,7 +338,7 @@ int _materialGain(Position start, List<String> pv, Side side) {
   var pos = start;
   var result = initial;
   for (final uci in pv.take(6)) {
-    final move = _parse(pos, uci);
+    final move = legalUciMove(pos, uci);
     if (move == null) break;
     final capture = isCapture(pos, move);
     pos = pos.play(move);

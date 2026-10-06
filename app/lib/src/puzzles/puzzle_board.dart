@@ -9,6 +9,7 @@ import '../analysis/analysis_page.dart';
 import '../community/post_puzzle.dart';
 import '../community/share_choice.dart';
 import '../engine/engine_service.dart';
+import '../engine/uci.dart';
 import '../settings/appearance.dart';
 import '../sound/move_sounds.dart';
 import 'puzzle.dart';
@@ -71,7 +72,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
       _controller.updatePosition(_gameData(), animate: false);
     } else {
       _later(const Duration(milliseconds: 600), () {
-        _apply(_parse(_pos, lead)!);
+        _apply(legalUciMove(_pos, lead)!);
         setState(() => _phase = _Phase.yourMove);
         _controller.updatePosition(_gameData());
       });
@@ -103,12 +104,6 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
     });
   }
 
-  Move? _parse(Position pos, String uci) {
-    final move = Move.parse(uci);
-    if (move == null || !pos.isLegal(move)) return null;
-    return move is NormalMove ? pos.normalizeMove(move) : move;
-  }
-
   void _apply(Move move) {
     playMoveSound(ref, _pos, move);
     _pos = _pos.play(move);
@@ -123,7 +118,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
   Future<void> _onUserMove(Move raw) async {
     if (_phase != _Phase.yourMove || !_pos.isLegal(raw)) return;
     final move = raw is NormalMove ? _pos.normalizeMove(raw) : raw;
-    final expected = _parse(_pos, _solution[_step]);
+    final expected = legalUciMove(_pos, _solution[_step]);
     final before = _pos;
     final beforeLast = _lastMove;
     _generation++;
@@ -191,7 +186,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
       return;
     }
     _later(const Duration(milliseconds: 450), () {
-      final reply = _parse(_pos, _solution[_step]);
+      final reply = legalUciMove(_pos, _solution[_step]);
       if (reply == null) {
         _finish(_Phase.solved);
         return;
@@ -245,7 +240,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
     _controller.updatePosition(_gameData());
     void step() {
       if (_step >= _solution.length) return;
-      final move = _parse(_pos, _solution[_step]);
+      final move = legalUciMove(_pos, _solution[_step]);
       if (move == null) return;
       _apply(move);
       _step++;
@@ -259,7 +254,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
   /// The position the user solves (after the opponent's lead-in move).
   Position _puzzlePosition() {
     final start = Chess.fromSetup(Setup.parseFen(_puzzle.fen));
-    final lead = _puzzle.lastMove == null ? null : _parse(start, _puzzle.lastMove!);
+    final lead = _puzzle.lastMove == null ? null : legalUciMove(start, _puzzle.lastMove!);
     return lead == null ? start : start.play(lead);
   }
 

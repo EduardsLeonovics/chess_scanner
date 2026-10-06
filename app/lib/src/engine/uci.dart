@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:dartchess/dartchess.dart';
+
 /// One principal variation reported by the engine.
 ///
 /// Scores are stored from White's point of view once passed through
@@ -88,4 +90,12 @@ PvLine? parseInfoLine(String line) {
   if (depth == null || pv == null || pv.isEmpty) return null;
   if (cp == null && mate == null) return null;
   return PvLine(multiPv: multiPv, depth: depth, pv: pv, cp: cp, mate: mate);
+}
+
+/// The legal move [uci] (e.g. "e2e4") from [position], with castling as
+/// king-takes-rook as dartchess expects, or null if it's not a legal move.
+Move? legalUciMove(Position position, String uci) {
+  final move = Move.parse(uci);
+  if (move == null || !position.isLegal(move)) return null;
+  return move is NormalMove ? position.normalizeMove(move) : move;
 }
