@@ -33,6 +33,17 @@ Future<void> main() async {
                 'released under Creative Commons Zero (CC0 1.0).',
           ),
           LicenseEntryWithLineBreaks(
+            ['Chess piece sets'],
+            'Piece sets from the Lichess project: cburnett by Colin M.L. Burnett and merida by '
+                'Armando Hernandez Marroquin (GPLv2+); chessnut by Alexis Luengas (Apache 2.0); '
+                'celtic, fantasy and spatial by Maurizio Monge (MIT); pirouetti by pirouetti, letter '
+                'by usolando and pixel by therealqtpi (AGPLv3+); mpchess by Maxime Chupin (GPLv3+); '
+                'shapes by flugsio (CC BY-SA 4.0); kiwen-suwi by neverRare, firi by James Faure and '
+                'totoy by Kosal Sen (CC BY 4.0, creativecommons.org/licenses/by/4.0); rhosgfx by '
+                'RhosGFX (CC0). Board images by the lila authors and pirouetti (AGPLv3+). '
+                'The Geo, Ink and Bubble sets are ChessGeek\'s own (GPLv3).',
+          ),
+          LicenseEntryWithLineBreaks(
             ['lichess-org/chess-openings'],
             'Opening names and theory from the Lichess chess-openings data set '
                 '(github.com/lichess-org/chess-openings), released under CC0 1.0.',

@@ -465,6 +465,59 @@ std::uint64_t UCIEngine::perft(const Search::LimitsType& limits) {
     return nodes;
 }
 
+namespace {
+
+// ChessGeek patch: Stockfish trusts the FEN it is given, and a board with
+// more pieces than a game can reach (e.g. a misread scan) makes NNUE write
+// past its fixed-size feature lists and crash the whole app. Accept only
+// boards a real game could reach: 8 ranks of 8 squares, one king each,
+// at most 8 pawns and 16 pieces per side, no promotions beyond the missing
+// pawns, and no pawns on the first or last rank.
+bool board_is_sane(const std::string& fen) {
+    const std::string board = fen.substr(0, fen.find(' '));
+    int counts[2][6] = {};  // [white, black][P, N, B, R, Q, K]
+    const std::string roles = "pnbrqk";
+    int rank = 0, file = 0;
+    for (char c : board)
+    {
+        if (c == '/')
+        {
+            if (file != 8)
+                return false;
+            rank++;
+            file = 0;
+        }
+        else if (c >= '1' && c <= '8')
+            file += c - '0';
+        else
+        {
+            const auto role = roles.find(char(std::tolower(static_cast<unsigned char>(c))));
+            if (role == std::string::npos)
+                return false;
+            if (role == 0 && (rank == 0 || rank == 7))
+                return false;
+            counts[std::isupper(static_cast<unsigned char>(c)) ? 0 : 1][role]++;
+            file++;
+        }
+        if (file > 8)
+            return false;
+    }
+    if (rank != 7 || file != 8)
+        return false;
+    for (auto& side : counts)
+    {
+        const int pawns = side[0];
+        const int extra = std::max(0, side[1] - 2) + std::max(0, side[2] - 2)
+                        + std::max(0, side[3] - 2) + std::max(0, side[4] - 1);
+        const int total = side[0] + side[1] + side[2] + side[3] + side[4] + side[5];
+        if (side[5] != 1 || pawns > 8 || total > 16 || extra > 8 - pawns)
+            return false;
+    }
+    return true;
+}
+
+}  // namespace
+
 void UCIEngine::position(std::istringstream& is) {
     std::string token, fen;
 
@@ -480,6 +533,12 @@ void UCIEngine::position(std::istringstream& is) {
             fen += token + " ";
     else
         return;
+
+    if (!board_is_sane(fen))
+    {
+        sync_cout << "info string Invalid position ignored" << sync_endl;
+        return;
+    }
 
     std::vector<std::string> moves;
 

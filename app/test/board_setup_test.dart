@@ -69,4 +69,38 @@ void main() {
       expect(rotatePieces(pieces), {Square.h8: Piece.whiteRook, Square.d7: Piece.blackPawn});
     });
   });
+
+  group('impossible material', () {
+    String? problem(String board) => materialProblem(Board.parseFen(board));
+
+    test('real positions pass, including promotions for missing pawns', () {
+      expect(problem('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'), isNull);
+      // Two pawns gone, two extra queens.
+      expect(problem('4k3/8/8/8/8/8/PPPPPP2/QQQ1K3'), isNull);
+    });
+
+    test('too many pawns, pieces or promotions are refused', () {
+      expect(problem('4k3/8/8/8/8/PPPPPPPP/PPPPPPPP/4K3'), 'White has more than 8 pawns');
+      expect(problem('nnnnknnn/nnnnnnnn/pppppppp/8/8/8/8/4K3'), 'Black has more than 16 pieces');
+      // All pawns still there, yet a third rook.
+      expect(problem('4k3/8/8/8/8/8/PPPPPPPP/RRR1K3'),
+          'White has more extra pieces than pawns that could have promoted');
+    });
+
+    test('a scanned board with 33 pieces gets a readable error, not a crash', () {
+      final board = Board.parseFen('rnbqkbnr/pppppppp/8/8/8/P7/PPPPPPPP/RNBQKBNR');
+      expect(
+        () => positionFromBoard(board, Side.white),
+        throwsA(isA<ImpossibleMaterialException>()
+            .having((e) => describeSetupError(e), 'message', 'White has more than 8 pawns')),
+      );
+    });
+
+    test('isAnalyzableFen guards the engine', () {
+      expect(isAnalyzableFen(kInitialFEN), isTrue);
+      expect(isAnalyzableFen('rnbqkbnr/pppppppp/8/8/8/P7/PPPPPPPP/RNBQKBNR w KQkq - 0 1'), isFalse);
+      expect(isAnalyzableFen('not a fen'), isFalse);
+      expect(isAnalyzableFen('8/8/8/8/8/8/8/8 w - - 0 1'), isFalse);
+    });
+  });
 }

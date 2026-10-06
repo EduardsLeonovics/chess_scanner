@@ -36,13 +36,16 @@ final boardThemes = [
   BoardTheme(blackWhiteThemeId, 'Black & white', _solidScheme(const Color(0xFFFFFFFF), const Color(0xFF000000))),
 ];
 
-/// The piece styles offered in settings: widely used Lichess sets.
+/// The piece styles offered in settings: widely used Lichess sets, and
+/// ChessGeek's own (all licensed for commercial use; see
+/// third_party/chessground/LICENSES.md).
 const pieceStyles = [
   (PieceSet.cburnett, 'Classic'),
   (PieceSet.merida, 'Merida'),
-  (PieceSet.alpha, 'Alpha'),
-  (PieceSet.california, 'California'),
-  (PieceSet.staunty, 'Staunty'),
+  (PieceSet.chessnut, 'Chessnut'),
+  (PieceSet.geo, 'Geo'),
+  (PieceSet.ink, 'Ink'),
+  (PieceSet.bubble, 'Bubble'),
 ];
 
 /// How the board and pieces look. Persisted across launches.

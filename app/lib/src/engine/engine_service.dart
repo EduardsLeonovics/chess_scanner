@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stockfish/stockfish.dart';
 
+import '../board/board_setup.dart';
 import 'engine_settings.dart';
 import 'uci.dart';
 
@@ -201,6 +202,12 @@ class EngineService {
       );
 
   void analyze(String fen) {
+    // Stockfish crashes on impossible positions (e.g. 33 pieces from a
+    // misread scan); never hand it one.
+    if (!isAnalyzableFen(fen)) {
+      stop();
+      return;
+    }
     _liveFen = fen;
     _pendingLive = _liveSearch(fen);
     if (_current == null) {
@@ -236,6 +243,9 @@ class EngineService {
   }) {
     if (status.value == EngineStatus.unavailable || status.value == EngineStatus.error) {
       return Future.error(StateError('Stockfish is not available'));
+    }
+    if (!isAnalyzableFen(fen)) {
+      return Future.error(StateError('Not a position Stockfish can analyze: $fen'));
     }
     final search = _Search(
       fen,

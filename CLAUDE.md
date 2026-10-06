@@ -3,6 +3,23 @@
 Guidance for Claude Code when working in this repo. See README.md for the
 product overview, stack and roadmap.
 
+## Open launch blockers — remind the user at the start of every session
+
+Raise these with the user until each is done, then delete its line:
+
+- **GPL non-compliance:** the GitHub repo
+  (https://github.com/EduardsLeonovics/chess_scanner) is private and returns
+  404. The app is GPL-3.0 (Stockfish, chessground, dartchess), so the exact
+  source of every released version must be available to everyone who gets
+  the app. Make the repo public (or publish tagged source per release)
+  before distributing any build outside the team.
+- **Support email:** none exists. Create one and set
+  `AppInfo.supportEmail` (`app/lib/src/app_info.dart`); Play also needs it.
+- **Release signing key:** release builds are signed with the debug (test)
+  key because `app/android/key.properties` doesn't exist. Create an upload
+  key, enrol in Play App Signing, and put its SHA-256 fingerprint in
+  `share_site/.well-known/assetlinks.json`.
+
 ## Project
 
 ChessGeek: a Flutter app (Android first; iOS builds need macOS) that reads a

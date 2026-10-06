@@ -8,33 +8,25 @@ import 'screenshot_vision.dart';
 
 export 'screenshot_vision.dart' show RecognitionException, RecognizedBoard;
 
-/// Piece sets used as shape references. Chosen to cover the common looks of
-/// chess sites and apps; novelty sets (pixel, letters, xkcd, …) are left out.
+/// Piece sets used as shape references: every bundled set with a classic
+/// look (novelty sets like pixel and letter are left out), plus ChessGeek's
+/// own so screenshots of this app read back.
 const templateSets = [
   PieceSet.cburnett,
   PieceSet.merida,
-  PieceSet.alpha,
-  PieceSet.california,
-  PieceSet.cardinal,
-  PieceSet.maestro,
-  PieceSet.staunty,
-  PieceSet.companion,
-  PieceSet.leipzig,
-  PieceSet.fresca,
-  PieceSet.gioco,
-  PieceSet.tatiana,
-  PieceSet.governor,
   PieceSet.chessnut,
-  PieceSet.kosal,
-  PieceSet.riohacha,
   PieceSet.pirouetti,
-  PieceSet.icpieces,
   PieceSet.mpchess,
-  PieceSet.dubrovny,
-  PieceSet.cooke,
-  PieceSet.reillycraig,
   PieceSet.celtic,
-  PieceSet.monarchy,
+  PieceSet.fantasy,
+  PieceSet.spatial,
+  PieceSet.firi,
+  PieceSet.kiwenSuwi,
+  PieceSet.totoy,
+  PieceSet.rhosgfx,
+  PieceSet.geo,
+  PieceSet.ink,
+  PieceSet.bubble,
 ];
 
 List<PieceTemplate>? _templates;

@@ -27,4 +27,9 @@ void main() {
   test('the starting position round-trips', () {
     expect(positionFromLink(positionLink(kInitialFEN))!.fen, kInitialFEN);
   });
+
+  test('a crafted link with impossible material is refused', () {
+    final link = positionLink('rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    expect(positionFromLink(link), isNull);
+  });
 }

@@ -5,6 +5,8 @@ import 'package:dartchess/dartchess.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../board/board_setup.dart';
+
 /// Shared positions are links to a small web page. With ChessGeek
 /// installed, Android opens them in the app (App Links); otherwise the page
 /// shows the position and sends the visitor to the Play Store. The page
@@ -28,7 +30,10 @@ Position? positionFromLink(Uri uri) {
   final fen = uri.queryParameters['fen'];
   if (!ours || fen == null) return null;
   try {
-    return Chess.fromSetup(Setup.parseFen(fen.trim()));
+    final setup = Setup.parseFen(fen.trim());
+    // A crafted link must not reach Stockfish with impossible material.
+    checkMaterial(setup.board);
+    return Chess.fromSetup(setup);
   } on FenException {
     return null;
   } on PositionSetupException {

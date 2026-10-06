@@ -41,12 +41,12 @@ void main() {
     expect(appearance.colorScheme.darkSquare, const Color(0xFF769656));
   });
 
-  test('offers textured board themes and five piece styles', () {
+  test('offers textured board themes and six piece styles', () {
     expect(
       boardThemes.where((t) => t.scheme.background is ImageChessboardBackground),
       isNotEmpty,
     );
-    expect(pieceStyles, hasLength(5));
+    expect(pieceStyles, hasLength(6));
   });
 
   test('the black & white board outlines black pieces in white unless turned off', () {

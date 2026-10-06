@@ -33,7 +33,10 @@ dependencies:
 
   stockfish:
     path: third_party/stockfish
-  chessground: ^10.3.0
+  # Vendored: only the piece sets licensed for commercial use, plus
+  # ChessGeek's own (see third_party/chessground/LICENSES.md).
+  chessground:
+    path: third_party/chessground
   dartchess: ^0.14.0
   flutter_riverpod: ^3.4.3
   image_picker: ^1.2.3
