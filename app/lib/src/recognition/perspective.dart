@@ -157,10 +157,17 @@ double _checkerContrast(Float32List gray, int w, int h, _Homography hom) {
 // ---------------------------------------------------------------------------
 // Lines
 
+/// [image]'s pixels as packed r, g, b bytes. Reads them in place when the
+/// image already is 8-bit RGB (decoded JPEGs), since convert() always copies.
+Uint8List rgbBytes(img.Image image) {
+  final rgb = image.format == img.Format.uint8 && image.numChannels == 3 && !image.hasPalette
+      ? image
+      : image.convert(format: img.Format.uint8, numChannels: 3);
+  return rgb.getBytes(order: img.ChannelOrder.rgb);
+}
+
 Float32List _gray(img.Image image) {
-  final rgb = image
-      .convert(format: img.Format.uint8, numChannels: 3)
-      .getBytes(order: img.ChannelOrder.rgb);
+  final rgb = rgbBytes(image);
   final n = image.width * image.height;
   final gray = Float32List(n);
   for (var i = 0; i < n; i++) {
@@ -530,9 +537,8 @@ _Homography? _orientedHomography(List<(double, double, _Pt)> corners) {
 }
 
 img.Image _warp(img.Image source, _Homography hom) {
-  final src = source.convert(format: img.Format.uint8, numChannels: 3);
-  final bytes = src.getBytes(order: img.ChannelOrder.rgb);
-  final sw = src.width, sh = src.height;
+  final bytes = rgbBytes(source);
+  final sw = source.width, sh = source.height;
   final outBytes = Uint8List(rectifiedSide * rectifiedSide * 3);
   const total = 1 + 2 * _margin;
   for (var y = 0; y < rectifiedSide; y++) {

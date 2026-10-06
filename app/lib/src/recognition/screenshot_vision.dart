@@ -76,7 +76,11 @@ RecognizedBoard recognizeScreenshot(
   if (image == null) {
     throw const RecognitionException("Couldn't read that image.");
   }
-  image = img.bakeOrientation(image);
+  // bakeOrientation copies the whole image even when there's nothing to turn.
+  final orientation = image.exif.imageIfd;
+  if (orientation.hasOrientation && orientation.orientation != 1) {
+    image = img.bakeOrientation(image);
+  }
   final longest = math.max(image.width, image.height);
   if (longest > _maxSide) {
     image = image.width >= image.height
@@ -114,9 +118,7 @@ class _Pixels {
   _Pixels(this.width, this.height, this.rgb, this.lum);
 
   factory _Pixels.fromImage(img.Image image) {
-    final rgb = image
-        .convert(format: img.Format.uint8, numChannels: 3)
-        .getBytes(order: img.ChannelOrder.rgb);
+    final rgb = rgbBytes(image);
     final n = image.width * image.height;
     final lum = Uint8List(n);
     for (var i = 0; i < n; i++) {
@@ -344,7 +346,7 @@ _Grid? _gridFromRows(_Pixels p, _Lines ys) {
 
 /// Background luminance of each square, row by row from the top left.
 List<double> _squareLums(_Pixels p, _Grid grid) =>
-    List.generate(64, (i) => _background(p, grid, i % 8, i ~/ 8).luminance);
+    List.generate(64, (i) => _background(p, grid, i % 8, i ~/ 8, withNoise: false).luminance);
 
 (double, double) _parityMeans(List<double> lums) {
   final sums = [0.0, 0.0];
@@ -398,7 +400,13 @@ class _Background {
   double get luminance => (color[0] * 299 + color[1] * 587 + color[2] * 114) / 1000;
 }
 
-_Background _background(_Pixels p, _Grid g, int c, int r) {
+/// The plain colour of square ([c], [r]) from its four corner patches, and
+/// with [withNoise] how textured it is.
+///
+/// Medians and percentiles come from histograms (values are small integers),
+/// which pick the same element sorting would, without the sorting: this runs
+/// thousands of times per scan.
+_Background _background(_Pixels p, _Grid g, int c, int r, {bool withNoise = true}) {
   final patchX = math.max(2, (g.stepX * 0.1).round());
   final patchY = math.max(2, (g.stepY * 0.1).round());
   final insetX = math.max(1, (g.stepX * 0.04).round());
@@ -407,33 +415,63 @@ _Background _background(_Pixels p, _Grid g, int c, int r) {
   final top = (g.y0 + r * g.stepY).round() + insetY;
   final right = (g.x0 + (c + 1) * g.stepX).round() - insetX - patchX;
   final bottom = (g.y0 + (r + 1) * g.stepY).round() - insetY - patchY;
-  final corners = [
-    for (final (px, py) in [(left, top), (right, top), (left, bottom), (right, bottom)])
-      [
-        for (var y = py; y < py + patchY; y++)
-          for (var x = px; x < px + patchX; x++)
-            if (x >= 0 && y >= 0 && x < p.width && y < p.height) (y * p.width + x) * 3,
-      ],
-  ];
-  final pixels = corners.expand((corner) => corner).toList();
-  if (pixels.isEmpty) return const _Background([0, 0, 0], 0);
-  int median(int channel) {
-    final v = [for (final i in pixels) p.rgb[i + channel]]..sort();
-    return v[v.length ~/ 2];
+  final corners = [(left, top), (right, top), (left, bottom), (right, bottom)];
+  final rgb = p.rgb;
+
+  // Calls [visit] with the rgb offset of each pixel of a corner patch that
+  // lies inside the image.
+  void eachPixel((int, int) corner, void Function(int i) visit) {
+    final (px, py) = corner;
+    final x0 = math.max(px, 0), x1 = math.min(px + patchX, p.width);
+    final y0 = math.max(py, 0), y1 = math.min(py + patchY, p.height);
+    for (var y = y0; y < y1; y++) {
+      for (var x = x0; x < x1; x++) {
+        visit((y * p.width + x) * 3);
+      }
+    }
   }
 
+  final histogram = Int32List(3 * 256);
+  var count = 0;
+  for (final corner in corners) {
+    eachPixel(corner, (i) {
+      histogram[rgb[i]]++;
+      histogram[256 + rgb[i + 1]]++;
+      histogram[512 + rgb[i + 2]]++;
+      count++;
+    });
+  }
+  if (count == 0) return const _Background([0, 0, 0], 0);
+  int median(int channel) => _kth(histogram, channel * 256, 256, count ~/ 2);
+
   final bg = _Background([median(0), median(1), median(2)], 0);
+  if (!withNoise) return bg;
   // Texture shows in every corner, a piece only in some (rook bases fill
   // the bottom ones), so the quietest corner tells how textured it is.
   var noise = 1 << 30;
+  final distances = Int32List(3 * 255 + 1);
   for (final corner in corners) {
-    if (corner.isEmpty) continue;
-    final distances = [
-      for (final i in corner) bg.distanceTo(p.rgb[i], p.rgb[i + 1], p.rgb[i + 2]),
-    ]..sort();
-    noise = math.min(noise, distances[(distances.length * 0.9).floor()]);
+    distances.fillRange(0, distances.length, 0);
+    var n = 0;
+    eachPixel(corner, (i) {
+      distances[bg.distanceTo(rgb[i], rgb[i + 1], rgb[i + 2])]++;
+      n++;
+    });
+    if (n == 0) continue;
+    noise = math.min(noise, _kth(distances, 0, distances.length, (n * 0.9).floor()));
   }
   return _Background(bg.color, noise);
+}
+
+/// The [k]th smallest value (from 0) counted in [histogram]'s [size] bins
+/// starting at [offset]: what sorting the values and taking index [k] gives.
+int _kth(Int32List histogram, int offset, int size, int k) {
+  var seen = 0;
+  for (var v = 0; v < size; v++) {
+    seen += histogram[offset + v];
+    if (seen > k) return v;
+  }
+  return size - 1;
 }
 
 class _SquareReading {
@@ -745,6 +783,13 @@ class _Blob {
     final labels = Int32List(w * h);
     final stack = <int>[];
     var bestLabel = 0, bestSize = 0, label = 0;
+    void visit(int n) {
+      if (mask[n] == 1 && labels[n] == 0) {
+        labels[n] = label;
+        stack.add(n);
+      }
+    }
+
     for (var start = 0; start < w * h; start++) {
       if (mask[start] == 0 || labels[start] != 0) continue;
       label++;
@@ -755,14 +800,12 @@ class _Blob {
         final i = stack.removeLast();
         size++;
         final x = i % w, y = i ~/ w;
-        for (final (nx, ny) in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]) {
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          final n = ny * w + nx;
-          if (mask[n] == 1 && labels[n] == 0) {
-            labels[n] = label;
-            stack.add(n);
-          }
-        }
+        // Left, right, up, down; written out because a list of neighbours
+        // per pixel was millions of allocations per scan.
+        if (x > 0) visit(i - 1);
+        if (x < w - 1) visit(i + 1);
+        if (y > 0) visit(i - w);
+        if (y < h - 1) visit(i + w);
       }
       if (size > bestSize) {
         bestSize = size;
