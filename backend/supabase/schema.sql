@@ -430,6 +430,57 @@ alter table public.posts add constraint posts_solution_format check (
 ) not valid;
 
 -- ---------------------------------------------------------------------------
+-- Anonymous usage statistics: totals per day, event, platform and app
+-- version. The app only sends them when the user allowed it (consent
+-- message / Settings). Nothing here identifies anyone: no user or device
+-- id, and the address a request came from is never stored.
+create table if not exists public.usage_daily (
+  day date not null default current_date,
+  event text not null check (event ~ '^[a-z_]{1,32}$'),
+  platform text not null check (platform ~ '^[a-z]{1,16}$'),
+  app_version text not null check (app_version ~ '^[0-9.]{1,20}$'),
+  count bigint not null default 0,
+  primary key (day, event, platform, app_version)
+);
+alter table public.usage_daily enable row level security;
+-- No policies: only record_usage writes it; read it in the dashboard.
+
+-- Adds the app's counts ({"puzzle_solved": 3, ...}) to today's totals.
+-- Unknown events are ignored and counts are capped, so a bad client can't
+-- do much.
+create or replace function public.record_usage(events jsonb, platform text, app_version text)
+returns void
+language plpgsql
+volatile
+security definer set search_path = public
+as $$
+declare
+  known constant text[] := array[
+    'app_open', 'scan_read', 'scan_failed', 'puzzle_solved', 'puzzle_failed', 'game_analyzed',
+    'opening_studied', 'post_created', 'comment_created', 'position_shared'];
+  item record;
+  n bigint;
+begin
+  if jsonb_typeof(events) <> 'object' or (select count(*) from jsonb_object_keys(events)) > 30
+     or platform !~ '^[a-z]{1,16}$' or app_version !~ '^[0-9.]{1,20}$' then
+    return;
+  end if;
+  for item in select key, value from jsonb_each(events) loop
+    continue when not (item.key = any(known)) or jsonb_typeof(item.value) <> 'number';
+    n := least(greatest((item.value #>> '{}')::numeric, 0), 500)::bigint;
+    continue when n = 0;
+    insert into public.usage_daily (event, platform, app_version, count)
+      values (item.key, platform, app_version, n)
+      on conflict (day, event, platform, app_version)
+      do update set count = public.usage_daily.count + excluded.count;
+  end loop;
+end;
+$$;
+
+revoke execute on function public.record_usage(jsonb, text, text) from public;
+grant execute on function public.record_usage(jsonb, text, text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Moderation: open reports, child-safety reports first, then newest, with
 -- what was reported and how often that user has been reported. For the
 -- project owner only (dashboard Table/SQL Editor); the app can't read it.

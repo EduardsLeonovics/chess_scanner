@@ -10,6 +10,7 @@ import '../puzzles/generator_banner.dart';
 import '../puzzles/puzzle_store.dart';
 import '../settings/appearance.dart';
 import '../settings/settings_page.dart';
+import '../ads/ad_banner.dart';
 import '../skills/opening_book.dart';
 import 'opening_study_page.dart';
 import 'repertoire.dart';
@@ -100,6 +101,7 @@ class _OpeningsPageState extends ConsumerState<OpeningsPage> {
                       _ => const Center(child: CircularProgressIndicator()),
                     },
             ),
+            const AdBanner(),
           ],
         ),
       ),

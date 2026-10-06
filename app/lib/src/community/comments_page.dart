@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../privacy/usage_stats.dart';
 import 'community_models.dart';
 import 'community_repository.dart';
 import 'post_card.dart';
@@ -58,6 +59,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     if (!mounted) return;
     setState(() => _sending = false);
     if (sent) {
+      ref.read(usageStatsProvider).track(UsageEvent.commentCreated);
       _text.clear();
       FocusScope.of(context).unfocus();
       await _load();

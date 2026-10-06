@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../community/blocked_accounts_page.dart';
+import '../privacy/privacy_section.dart';
 import 'accounts_section.dart';
 import 'appearance.dart';
 import 'color_picker.dart';
@@ -316,6 +317,8 @@ class SettingsPage extends ConsumerWidget {
               const CommunitySafetySection(),
               const SettingsHeading('Puzzles'),
               const PuzzleDataSection(),
+              const SettingsHeading('Privacy'),
+              const PrivacySection(),
               const SettingsHeading('Crash reports'),
               const CrashReportsSection(),
               const SettingsHeading('About'),

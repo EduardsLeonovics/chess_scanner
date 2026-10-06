@@ -11,6 +11,7 @@ import '../accounts/game_sources.dart';
 import '../diagnostics/crash_log.dart';
 import '../engine/engine_service.dart';
 import '../openings/repertoire.dart';
+import '../privacy/usage_stats.dart';
 import '../settings/appearance.dart';
 import '../skills/opening_book.dart';
 import '../skills/skill_stats.dart';
@@ -275,8 +276,12 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
 
   /// Records an attempt at a puzzle that ended in [outcome] (solved or
   /// failed), and when it's due again (see [reviewed]).
-  void recordResult(String id, PuzzleResult outcome, {DateTime? now}) =>
-      _update(id, (p) => reviewed(p, outcome, now ?? DateTime.now()));
+  void recordResult(String id, PuzzleResult outcome, {DateTime? now}) {
+    ref.read(usageStatsProvider).track(
+          outcome == PuzzleResult.solved ? UsageEvent.puzzleSolved : UsageEvent.puzzleFailed,
+        );
+    _update(id, (p) => reviewed(p, outcome, now ?? DateTime.now()));
+  }
 
   /// The user moved on from a puzzle without attempting it.
   void skip(String id, {DateTime? now}) => _update(id, (p) => skipped(p, now ?? DateTime.now()));
@@ -578,6 +583,7 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
         libraryNotifier.addGame(game, const [], null, true);
       } else {
         libraryNotifier.addGame(game, analysis.puzzles, analysis.skills, true);
+        ref.read(usageStatsProvider).track(UsageEvent.gameAnalyzed);
         found += analysis.puzzles.length;
       }
       done++;

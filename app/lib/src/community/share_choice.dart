@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../privacy/usage_stats.dart';
 import '../share/share_link.dart';
 import 'auth_page.dart';
 import 'community_models.dart';
@@ -53,6 +54,7 @@ Future<void> showShareChoice(
     case null:
       return;
     case _Share.link:
+      ref.read(usageStatsProvider).track(UsageEvent.positionShared);
       await sharePositionLink(linkFen, buttonContext);
     case _Share.community:
       await _postToCommunity(buttonContext, ref, makeDraft);

@@ -3,6 +3,7 @@ import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../privacy/usage_stats.dart';
 import '../settings/appearance.dart';
 import 'community_models.dart';
 import 'community_repository.dart';
@@ -42,6 +43,7 @@ class _ComposePostPageState extends ConsumerState<ComposePostPage> {
     if (!mounted) return;
     setState(() => _posting = false);
     if (posted) {
+      ref.read(usageStatsProvider).track(UsageEvent.postCreated);
       ref.read(feedRevisionProvider.notifier).bump();
       navigator.pop(true);
     }

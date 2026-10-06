@@ -20,6 +20,17 @@ Raise these with the user until each is done, then delete its line:
   key, enrol in Play App Signing, and put its SHA-256 fingerprint in
   `share_site/.well-known/assetlinks.json`.
 
+- **AdMob ids:** the app uses Google's test ids (AndroidManifest.xml,
+  ios/Runner/Info.plist, `AdsConfig` in `app/lib/src/ads/ad_banner.dart`).
+  Create the AdMob app and banner units and swap them in before release.
+- **AdMob consent message:** in AdMob → Privacy & messaging, create the
+  European regulations message (and the US states one) and enable "ask for
+  consent for your own use" with TCF purposes 1, 8 and 9 — the app's usage
+  statistics read those (`app/lib/src/privacy/consent.dart`).
+- **Backend deploy:** re-run `backend/supabase/schema.sql` and deploy the
+  `sign-in-with-username` Edge Function (see backend/supabase/README.md).
+- **Privacy policy and Terms of Use:** not written yet; Play requires both.
+
 ## Project
 
 ChessGeek: a Flutter app (Android first; iOS builds need macOS) that reads a
@@ -75,6 +86,23 @@ Chess.com games.
   automatically).
 - Home tabs live in an `IndexedStack` and are built on first visit
   (Community is built at launch: it handles password-reset links).
+- Positions must pass `materialProblem` / `isAnalyzableFen`
+  (`board/board_setup.dart`) before reaching Stockfish: more pieces than a
+  game can reach crash its NNUE. The vendored Stockfish's `position`
+  command also refuses them (patch in `uci.cpp`), as a last resort.
+- Piece sets: only sets licensed for commercial use (the app shows ads).
+  chessground is vendored in `app/third_party/chessground` with the rest
+  removed; licences in its LICENSES.md. Geo, Ink and Bubble are our own,
+  drawn by `app/tool/make_piece_sets.py`.
+- Ads and privacy: Google's consent message (UMP) runs at launch
+  (`privacy/consent.dart`); ads load only after it allows. Banners only on
+  read-only pages (Skills, Openings), never next to a board. Usage
+  statistics (`privacy/usage_stats.dart`) are anonymous daily totals,
+  sent only with consent; never add user/device ids, location or content
+  to them.
+- Community safety: reports have categories (keep `ReportCategory` and the
+  `reports_category_check` in schema.sql in sync — a test checks it);
+  blocking works both ways on the server (`blocked_between`).
 - Recognition must run offline on-device. No server calls for inference.
 - Recognition output always goes through the editable board-setup screen
   before analysis; never assume it is right.

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/analysis_page.dart' show pvToSan;
 import '../engine/engine_service.dart';
+import '../privacy/usage_stats.dart';
 import '../puzzles/puzzle_finder.dart' show scoreOf;
 import '../settings/appearance.dart';
 import '../skills/opening_book.dart';
@@ -100,6 +101,7 @@ class _OpeningStudyPageState extends ConsumerState<OpeningStudyPage> {
   void initState() {
     super.initState();
     _controller = ChessboardController(game: _gameData());
+    ref.read(usageStatsProvider).track(UsageEvent.openingStudied);
   }
 
   @override

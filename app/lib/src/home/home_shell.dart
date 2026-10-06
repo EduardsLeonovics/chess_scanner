@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../analysis/analysis_page.dart';
 import '../community/community_page.dart';
 import '../diagnostics/crash_log.dart';
+import '../privacy/consent.dart';
+import '../privacy/usage_stats.dart';
 import '../openings/openings_page.dart';
 import '../puzzles/puzzle_store.dart';
 import '../puzzles/puzzles_page.dart';
@@ -36,6 +38,7 @@ class HomeTab extends Notifier<int> {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<Uri>? _links;
+  late final AppLifecycleListener _lifecycle;
 
   /// Tabs built so far. The others are built the first time they're opened,
   /// so launching doesn't do their work (e.g. Openings loads the opening
@@ -58,7 +61,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         );
       },
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _lifecycle = AppLifecycleListener(onPause: () => ref.read(usageStatsProvider).flush());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Consent first (it may show Google's message), then the rest.
+      await ref.read(privacyProvider.notifier).start();
+      if (!mounted) return;
+      ref.read(usageStatsProvider)
+        ..track(UsageEvent.appOpen)
+        ..flush();
       _offerCrashReport();
       _offerResume();
     });
@@ -67,6 +77,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void dispose() {
     _links?.cancel();
+    _lifecycle.dispose();
     super.dispose();
   }
 

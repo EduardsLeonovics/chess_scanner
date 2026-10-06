@@ -13,6 +13,7 @@ import '../community/share_choice.dart';
 import '../engine/engine_service.dart';
 import '../engine/engine_settings.dart';
 import '../engine/uci.dart';
+import '../privacy/usage_stats.dart';
 import '../recognition/board_recognizer.dart';
 import '../settings/appearance.dart';
 import '../settings/settings_page.dart';
@@ -235,7 +236,9 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
     final RecognizedBoard result;
     try {
       result = await recognizeBoard(bytes);
+      ref.read(usageStatsProvider).track(UsageEvent.scanRead);
     } on RecognitionException catch (e) {
+      ref.read(usageStatsProvider).track(UsageEvent.scanFailed);
       if (mounted) _showMessage(e.message);
       return;
     } finally {
