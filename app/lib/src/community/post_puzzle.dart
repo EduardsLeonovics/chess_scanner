@@ -1,5 +1,6 @@
 import 'package:dartchess/dartchess.dart';
 
+import '../board/board_setup.dart';
 import '../engine/engine_service.dart';
 import '../engine/uci.dart';
 import '../puzzles/puzzle.dart';
@@ -41,6 +42,12 @@ PostDraft draftFromPuzzle(Puzzle puzzle) => PostDraft(
 Future<PostDraft> draftFromPosition(Position position, EngineService engine) async {
   if (position.isGameOver) {
     throw const PostPuzzleException('The game is over in this position: there is no move to find.');
+  }
+  final problem = materialProblem(position.board);
+  if (problem != null) {
+    throw PostPuzzleException(
+      'Stockfish can\'t work out a solution here ($problem). Share it as a link instead.',
+    );
   }
   final EngineEval eval;
   try {

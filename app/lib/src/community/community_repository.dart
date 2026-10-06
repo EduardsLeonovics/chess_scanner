@@ -121,8 +121,11 @@ class CommunityRepository {
       final email = (response.data as Map<String, dynamic>?)?['email'];
       if (email is String) return email;
     } on FunctionException catch (e) {
+      // Our function answers {"error": "invalid"}; any other 401 is the
+      // gateway (e.g. JWT verification left on for the function).
+      final wrongPassword = e.details is Map && (e.details as Map)['error'] == 'invalid';
       throw CommunityException(switch (e.status) {
-        401 => 'Wrong username or password.',
+        401 when wrongPassword => 'Wrong username or password.',
         429 => 'Too many wrong passwords. Wait 15 minutes, or sign in with your email.',
         _ => 'Signing in with a username isn\'t working right now. Use your email instead.',
       });

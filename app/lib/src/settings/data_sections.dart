@@ -254,6 +254,17 @@ class AboutSection extends StatelessWidget {
               },
             ),
             _ActionRow(
+              icon: Icons.privacy_tip_outlined,
+              title: 'Privacy policy',
+              subtitle: '${AppInfo.privacyUrl}\nTap to copy the link',
+              onTap: () {
+                Clipboard.setData(const ClipboardData(text: AppInfo.privacyUrl));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Link copied')),
+                );
+              },
+            ),
+            _ActionRow(
               icon: Icons.description_outlined,
               title: 'Open-source licences',
               subtitle: 'Stockfish, chessground, dartchess and the other parts ChessGeek is built on',

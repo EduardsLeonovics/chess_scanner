@@ -503,6 +503,19 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
     if (_pos.isGameOver) {
       return Center(child: Text('Draw', style: theme.textTheme.titleMedium));
     }
+    final problem = materialProblem(_pos.board);
+    if (problem != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Stockfish can\'t analyze this position: $problem. It only takes material a real '
+            'game could reach. You can still play moves here and share the position.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
 
     return ValueListenableBuilder(
       valueListenable: _engine.status,

@@ -87,12 +87,21 @@ void main() {
           'White has more extra pieces than pawns that could have promoted');
     });
 
-    test('a scanned board with 33 pieces gets a readable error, not a crash', () {
-      final board = Board.parseFen('rnbqkbnr/pppppppp/8/8/8/P7/PPPPPPPP/RNBQKBNR');
+    test('impossible material can be set up, but not analyzed', () {
+      // Twenty queens a side.
+      final board = Board.parseFen('kqqqqqqq/qqqqqqqq/qqqqq3/8/8/3QQQQQ/QQQQQQQQ/QQQQQQQK');
+      final position = positionFromBoard(board, Side.white);
+      expect(materialProblem(position.board), 'White has more than 16 pieces');
+      expect(isAnalyzableFen(position.fen), isFalse);
+    });
+
+    test('a side that is already checkmated is refused with a readable error', () {
+      // Fool's mate: White to move is mated.
+      final board = Board.parseFen('rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR');
       expect(
         () => positionFromBoard(board, Side.white),
-        throwsA(isA<ImpossibleMaterialException>()
-            .having((e) => describeSetupError(e), 'message', 'White has more than 8 pawns')),
+        throwsA(isA<PositionRuleException>()
+            .having((e) => describeSetupError(e), 'message', 'White is already checkmated')),
       );
     });
 

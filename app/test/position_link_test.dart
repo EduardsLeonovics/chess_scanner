@@ -28,8 +28,10 @@ void main() {
     expect(positionFromLink(positionLink(kInitialFEN))!.fen, kInitialFEN);
   });
 
-  test('a crafted link with impossible material is refused', () {
-    final link = positionLink('rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-    expect(positionFromLink(link), isNull);
+  test('impossible material can be shared, a finished game can\'t', () {
+    final twentyPawns = positionLink('4k3/pppppppp/pppppppp/pppp4/PPPP4/PPPPPPPP/PPPPPPPP/4K3 w - - 0 1');
+    expect(positionFromLink(twentyPawns), isNotNull);
+    final mated = positionLink('rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3');
+    expect(positionFromLink(mated), isNull);
   });
 }

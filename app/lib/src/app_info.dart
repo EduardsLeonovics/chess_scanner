@@ -6,6 +6,10 @@ abstract final class AppInfo {
   /// able to get it, so this repository must be public before release.
   static const sourceUrl = 'https://github.com/EduardsLeonovics/chess_scanner';
 
+  /// The privacy policy (share_site/chessgeek/privacy/). Its #delete section
+  /// is the account-deletion page Google Play asks for.
+  static const privacyUrl = 'https://eduardsleonovics.github.io/chessgeek/privacy/';
+
   /// Where crash reports and support questions should go. Set before release;
   /// while null, crash reports are shared without a suggested recipient.
   static const String? supportEmail = null;

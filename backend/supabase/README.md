@@ -34,8 +34,11 @@ unavailable.
 
 7. **Edge Functions → Deploy a new function → Via Editor**: name it
    `sign-in-with-username`, paste `functions/sign-in-with-username/index.ts`,
-   deploy. (Or with the Supabase CLI: `supabase functions deploy
-   sign-in-with-username`.) Signing in by username needs it; signing in by
+   then in the function's **Details / Settings** turn **off** "Verify JWT
+   with legacy secret" (Enforce JWT verification) and save. The app calls
+   it signed out with the publishable key, which isn't a JWT; the function
+   does its own checks. (CLI: `supabase functions deploy
+   sign-in-with-username --no-verify-jwt`.) Signing in by username needs it; signing in by
    email works without it. It uses the built-in `SUPABASE_URL` and
    `SUPABASE_SERVICE_ROLE_KEY` secrets, so there is nothing to configure.
 
@@ -70,6 +73,13 @@ expectations for a small app:
   "statement of reasons"): an email to their account address is enough.
 - Content that sexualises children must be reported to the police /
   national hotline (in Latvia: drossinternets.lv) — don't just delete it.
+- Once a month, delete old records, as the privacy policy promises
+  (SQL Editor):
+  ```sql
+  delete from public.reports
+    where status <> 'open' and created_at < now() - interval '12 months';
+  delete from public.crash_reports where created_at < now() - interval '12 months';
+  ```
 - Keep the support email (see CLAUDE.md) monitored: it is the DSA contact
   point for users and authorities.
 

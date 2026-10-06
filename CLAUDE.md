@@ -28,7 +28,10 @@ Raise these with the user until each is done, then delete its line:
   statistics read those (`app/lib/src/privacy/consent.dart`).
 - **Backend deploy:** re-run `backend/supabase/schema.sql` and deploy the
   `sign-in-with-username` Edge Function (see backend/supabase/README.md).
-- **Privacy policy and Terms of Use:** not written yet; Play requires both.
+- **Privacy policy:** drafted at `share_site/chessgeek/privacy/index.html`;
+  fill in the highlighted placeholders (name/company, address, support
+  email, Supabase region, date) and publish it. **Terms of Use:** not
+  written yet; Play requires them for the community.
 
 ## Project
 
@@ -85,10 +88,14 @@ Chess.com games.
   automatically).
 - Home tabs live in an `IndexedStack` and are built on first visit
   (Community is built at launch: it handles password-reset links).
-- Positions must pass `materialProblem` / `isAnalyzableFen`
-  (`board/board_setup.dart`) before reaching Stockfish: more pieces than a
-  game can reach crash its NNUE. The vendored Stockfish's `position`
-  command also refuses them (patch in `uci.cpp`), as a last resort.
+- Any material can be set up, viewed and shared (20 queens a side is
+  fine) as long as each side has one king and the side to move isn't
+  already checkmated (`positionFromBoard`, `checkNotCheckmate`). But only
+  positions passing `materialProblem` / `isAnalyzableFen`
+  (`board/board_setup.dart`) may reach Stockfish: beyond real-game material
+  its fixed tables (32 NNUE pieces, 128 threats, 256 moves) overflow and
+  crash the app. The analysis board says why instead. The vendored
+  Stockfish's `position` command also refuses them (patch in `uci.cpp`).
 - Piece sets: only sets licensed for commercial use (the app shows ads).
   chessground is vendored in `app/third_party/chessground` with the rest
   removed; licences in its LICENSES.md. Geo, Ink and Bubble are our own,

@@ -30,10 +30,9 @@ Position? positionFromLink(Uri uri) {
   final fen = uri.queryParameters['fen'];
   if (!ours || fen == null) return null;
   try {
-    final setup = Setup.parseFen(fen.trim());
-    // A crafted link must not reach Stockfish with impossible material.
-    checkMaterial(setup.board);
-    return Chess.fromSetup(setup);
+    // Any material may be shared; the analysis board won't hand Stockfish
+    // a position it can't take (see materialProblem).
+    return checkNotCheckmate(Chess.fromSetup(Setup.parseFen(fen.trim())));
   } on FenException {
     return null;
   } on PositionSetupException {
