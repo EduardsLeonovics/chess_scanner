@@ -21,7 +21,10 @@ class UnseenPostAlerts extends AsyncNotifier<int> {
     final repo = ref.watch(communityProvider);
     final user = ref.watch(communityUserProvider).value;
     if (repo == null || user == null) return 0;
-    final timer = Timer.periodic(_interval, (_) => refresh());
+    final timer = Timer.periodic(_interval, (_) {
+      // No point checking while nobody can see the badge.
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) refresh();
+    });
     ref.onDispose(timer.cancel);
     return _count(repo);
   }

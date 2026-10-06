@@ -122,7 +122,14 @@ class UserAvatar extends StatelessWidget {
       child: CircleAvatar(
         radius: radius,
         backgroundColor: HSLColor.fromAHSL(1, hue, 0.45, 0.4).toColor(),
-        foregroundImage: url == null ? null : NetworkImage(url),
+        // Decoded at the size shown, not the size uploaded.
+        foregroundImage: url == null
+            ? null
+            : ResizeImage.resizeIfNeeded(
+                (radius * 2 * MediaQuery.devicePixelRatioOf(context)).ceil(),
+                null,
+                NetworkImage(url),
+              ),
         // The letter shows while the picture loads, or if it fails to.
         onForegroundImageError: url == null ? null : (_, _) {},
         child: Text(

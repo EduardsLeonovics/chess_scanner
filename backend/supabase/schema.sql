@@ -59,16 +59,19 @@ $$;
 -- Signing in with a username: Supabase Auth only takes an email, so the app
 -- first trades username + password for the account's email here. The email
 -- is returned only when the password is right (so this can't be used to
--- collect addresses), and a username locks for 15 minutes after 10 wrong
--- passwords (so it can't be used to guess passwords faster than Auth's own
--- rate limits allow).
+-- collect addresses). Wrong passwords are limited per network address: 10
+-- for one username and 30 in all per 15 minutes, so it can't be used to
+-- guess passwords faster than Auth's own limits allow, and a stranger can't
+-- lock anyone else out.
 create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.sign_in_failures (
   username citext not null,
   at timestamptz not null default now()
 );
-create index if not exists sign_in_failures_idx on public.sign_in_failures (username, at);
+alter table public.sign_in_failures add column if not exists ip text not null default '';
+drop index if exists public.sign_in_failures_idx;
+create index if not exists sign_in_failures_ip_idx on public.sign_in_failures (ip, at);
 
 create or replace function public.email_for_sign_in(name text, password text)
 returns text
@@ -79,19 +82,28 @@ as $$
 declare
   found_email text;
   hash text;
+  caller text := coalesce(
+    split_part(current_setting('request.headers', true)::json ->> 'x-forwarded-for', ',', 1),
+    '');
 begin
   delete from public.sign_in_failures where at < now() - interval '15 minutes';
-  if (select count(*) from public.sign_in_failures where username = name::citext) >= 10 then
+  if (select count(*) from public.sign_in_failures where ip = caller) >= 30
+     or (select count(*) from public.sign_in_failures
+         where ip = caller and username = name::citext) >= 10 then
     raise exception 'too_many_attempts' using errcode = 'P0001';
   end if;
   select u.email, u.encrypted_password into found_email, hash
     from public.profiles p join auth.users u on u.id = p.id
     where p.username = name::citext;
-  if hash is not null and hash = extensions.crypt(password, hash) then
-    delete from public.sign_in_failures where username = name::citext;
+  -- No such user: nothing to guess, nothing to record.
+  if hash is null then
+    return null;
+  end if;
+  if hash = extensions.crypt(password, hash) then
+    delete from public.sign_in_failures where ip = caller and username = name::citext;
     return found_email;
   end if;
-  insert into public.sign_in_failures (username) values (name::citext);
+  insert into public.sign_in_failures (username, ip) values (name::citext, caller);
   return null;
 end;
 $$;

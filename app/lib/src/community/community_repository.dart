@@ -125,6 +125,11 @@ class CommunityRepository {
 
   /// Deletes the account with all its posts, comments and follows.
   Future<void> deleteAccount() => _call(() async {
+        // The picture is in public storage, which deleting the account
+        // doesn't touch. Best effort: there may be none.
+        try {
+          await _client.storage.from('avatars').remove(['$_uid/avatar.jpg']);
+        } catch (_) {}
         await _client.rpc<void>('delete_account');
         await _client.auth.signOut();
       });

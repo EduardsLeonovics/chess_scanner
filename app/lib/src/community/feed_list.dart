@@ -38,6 +38,10 @@ class _FeedListState extends ConsumerState<FeedList> {
   bool _done = false;
   String? _error;
 
+  /// Bumped by [_refresh], so a page still loading from before is dropped
+  /// instead of being appended to the fresh list.
+  int _generation = 0;
+
   @override
   void initState() {
     super.initState();
@@ -46,7 +50,9 @@ class _FeedListState extends ConsumerState<FeedList> {
 
   Future<void> _refresh() async {
     setState(() {
+      _generation++;
       _posts.clear();
+      _loading = false;
       _done = false;
       _error = null;
     });
@@ -55,19 +61,20 @@ class _FeedListState extends ConsumerState<FeedList> {
 
   Future<void> _loadMore() async {
     if (_loading || _done) return;
+    final generation = _generation;
     setState(() => _loading = true);
     try {
       final page = await widget.load(_posts.isEmpty ? null : _posts.last.createdAt);
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _posts.addAll(page);
         _done = page.length < CommunityRepository.pageSize;
         _error = null;
       });
     } on CommunityException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && generation == _generation) setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _generation) setState(() => _loading = false);
     }
   }
 
