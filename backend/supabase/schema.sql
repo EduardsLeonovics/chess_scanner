@@ -56,6 +56,46 @@ as $$
      and not exists (select 1 from public.profiles where username = name::citext);
 $$;
 
+-- Signing in with a username: Supabase Auth only takes an email, so the app
+-- first trades username + password for the account's email here. The email
+-- is returned only when the password is right (so this can't be used to
+-- collect addresses), and a username locks for 15 minutes after 10 wrong
+-- passwords (so it can't be used to guess passwords faster than Auth's own
+-- rate limits allow).
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists public.sign_in_failures (
+  username citext not null,
+  at timestamptz not null default now()
+);
+create index if not exists sign_in_failures_idx on public.sign_in_failures (username, at);
+
+create or replace function public.email_for_sign_in(name text, password text)
+returns text
+language plpgsql
+volatile
+security definer set search_path = public, extensions
+as $$
+declare
+  found_email text;
+  hash text;
+begin
+  delete from public.sign_in_failures where at < now() - interval '15 minutes';
+  if (select count(*) from public.sign_in_failures where username = name::citext) >= 10 then
+    raise exception 'too_many_attempts' using errcode = 'P0001';
+  end if;
+  select u.email, u.encrypted_password into found_email, hash
+    from public.profiles p join auth.users u on u.id = p.id
+    where p.username = name::citext;
+  if hash is not null and hash = extensions.crypt(password, hash) then
+    delete from public.sign_in_failures where username = name::citext;
+    return found_email;
+  end if;
+  insert into public.sign_in_failures (username) values (name::citext);
+  return null;
+end;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Posts: a position to solve and the author's text.
 
@@ -159,6 +199,8 @@ alter table public.blocks enable row level security;
 alter table public.reports enable row level security;
 alter table public.post_alerts enable row level security;
 alter table public.crash_reports enable row level security;
+-- Only email_for_sign_in (security definer) touches this: no policies.
+alter table public.sign_in_failures enable row level security;
 
 drop policy if exists "profiles readable" on public.profiles;
 create policy "profiles readable" on public.profiles
@@ -305,3 +347,5 @@ $$;
 revoke execute on function public.delete_account() from public, anon;
 grant execute on function public.delete_account() to authenticated;
 grant execute on function public.username_available(text) to anon, authenticated;
+revoke execute on function public.email_for_sign_in(text, text) from public;
+grant execute on function public.email_for_sign_in(text, text) to anon, authenticated;

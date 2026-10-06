@@ -97,8 +97,22 @@ class CommunityRepository {
         return response.session != null;
       });
 
-  Future<void> signIn({required String email, required String password}) =>
-      _call(() => _client.auth.signInWithPassword(email: email.trim(), password: password));
+  /// Signs in with an email or a username ([login] without an `@`).
+  Future<void> signIn({required String login, required String password}) => _call(() async {
+        var email = login.trim();
+        if (!email.contains('@')) {
+          if (!usernamePattern.hasMatch(email)) {
+            throw const CommunityException('Wrong username or password.');
+          }
+          final found = await _client.rpc<String?>(
+            'email_for_sign_in',
+            params: {'name': email, 'password': password},
+          );
+          if (found == null) throw const CommunityException('Wrong username or password.');
+          email = found;
+        }
+        await _client.auth.signInWithPassword(email: email, password: password);
+      });
 
   Future<void> signOut() => _call(() => _client.auth.signOut());
 
@@ -290,5 +304,6 @@ String _dbMessage(PostgrestException e) => switch (e.code) {
       '23514' => 'That is too long or not allowed.',
       'PGRST116' => 'That post or profile no longer exists.',
       '42501' => 'You can\'t do that.',
+      'P0001' when e.message.contains('too_many_attempts') => 'Too many wrong passwords. Wait 15 minutes.',
       _ => 'Something went wrong on the server (${e.code ?? e.message}).',
     };

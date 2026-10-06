@@ -130,7 +130,6 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
     _apply(move);
 
     if (move == expected || _pos.isCheckmate) {
-      playCorrectSound(ref);
       _step++;
       _phase = _Phase.correct;
       _refresh();
@@ -142,7 +141,6 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
     _refresh();
     if (await _acceptAlternative(move)) {
       if (!mounted) return;
-      playCorrectSound(ref);
       _phase = _Phase.correct;
       _refresh();
       _advance();
@@ -201,12 +199,16 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
       _apply(reply);
       _step++;
       _phase = _step >= _solution.length ? _Phase.solved : _Phase.yourMove;
-      if (_phase == _Phase.solved) _record();
+      if (_phase == _Phase.solved) {
+        playCorrectSound(ref);
+        _record();
+      }
       _refresh();
     });
   }
 
   void _finish(_Phase phase) {
+    if (phase == _Phase.solved) playCorrectSound(ref);
     _phase = phase;
     _record();
     _refresh();

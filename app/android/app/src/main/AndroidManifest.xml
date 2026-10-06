@@ -11,15 +11,25 @@
         android:label="ChessGeek"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Status-bar icon for the game analysis notification
+             (lib/src/puzzles/background_work.dart). Must be white on
+             transparent: Android flattens it to a silhouette. -->
+        <meta-data
+            android:name="com.chessgeek.notification_icon"
+            android:resource="@drawable/ic_stat_notification" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
+            <!-- singleTask: links (password reset, shared positions) opened from
+                 another app, e.g. Gmail's browser, reach the running app instead
+                 of starting a second copy in that app's task. A second copy runs
+                 a second Stockfish in the same process, which crashes it. -->
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues

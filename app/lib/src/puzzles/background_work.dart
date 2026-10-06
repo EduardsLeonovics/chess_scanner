@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 /// Keeps the app's process alive while games are analyzed with the app in
@@ -14,6 +15,13 @@ abstract final class BackgroundWork {
   static bool get _supported => !kIsWeb && Platform.isAndroid;
 
   static const _stopButton = 'stop';
+
+  /// White-on-transparent status-bar icon; the launcher icon would show as
+  /// a solid square. Declared as meta-data in AndroidManifest.xml.
+  static const _icon = NotificationIcon(
+    metaDataName: 'com.chessgeek.notification_icon',
+    backgroundColor: Color(0xFF49B0FD),
+  );
   static VoidCallback? _onStop;
 
   /// Call once, before [runApp].
@@ -53,6 +61,7 @@ abstract final class BackgroundWork {
         serviceId: 4401,
         notificationTitle: 'Analyzing your games',
         notificationText: text,
+        notificationIcon: _icon,
         notificationButtons: const [NotificationButton(id: _stopButton, text: 'Stop')],
         callback: _startCallback,
       );

@@ -26,7 +26,16 @@ class _CommunityPageState extends ConsumerState<CommunityPage> {
   void initState() {
     super.initState();
     // A password-reset link signs the user in: ask for the new password.
-    _recovery = ref.read(communityProvider)?.passwordRecovery.listen((_) => _askNewPassword());
+    _recovery = ref.read(communityProvider)?.passwordRecovery.listen(
+      (_) => _askNewPassword(),
+      // An expired or already used email link: say so instead of failing silently.
+      onError: (Object e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('That link has expired or was already used. Ask for a new one.'),
+        ));
+      },
+    );
   }
 
   @override

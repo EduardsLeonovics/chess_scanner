@@ -27,6 +27,15 @@ class _AuthPageState extends ConsumerState<AuthPage> {
   /// After sign-up when the email must be confirmed first.
   bool _checkEmail = false;
 
+  bool _closed = false;
+
+  /// Pops once, however the user got signed in.
+  void _close() {
+    if (_closed || !mounted) return;
+    _closed = true;
+    Navigator.of(context).pop(true);
+  }
+
   @override
   void dispose() {
     _email.dispose();
@@ -55,9 +64,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
           return;
         }
       } else {
-        await repo.signIn(email: _email.text, password: _password.text);
+        await repo.signIn(login: _email.text, password: _password.text);
       }
-      if (mounted) Navigator.of(context).pop(true);
+      _close();
     } on CommunityException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -86,6 +95,11 @@ class _AuthPageState extends ConsumerState<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Also signed in by a password-reset or confirmation link opened while
+    // this page is up; the Community tab then asks for a new password.
+    ref.listen(communityUserProvider, (previous, next) {
+      if (next.value != null) _close();
+    });
     final theme = Theme.of(context);
     if (_checkEmail) {
       return Scaffold(
@@ -153,12 +167,18 @@ class _AuthPageState extends ConsumerState<AuthPage> {
             ],
             TextFormField(
               controller: _email,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: InputDecoration(labelText: _creating ? 'Email' : 'Email or username'),
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
-              autofillHints: const [AutofillHints.email],
+              autofillHints: _creating
+                  ? const [AutofillHints.email]
+                  : const [AutofillHints.email, AutofillHints.username],
               textInputAction: TextInputAction.next,
-              validator: (v) => (v?.contains('@') ?? false) ? null : 'Enter your email.',
+              validator: (v) {
+                final text = v?.trim() ?? '';
+                if (_creating) return text.contains('@') ? null : 'Enter your email.';
+                return text.isNotEmpty ? null : 'Enter your email or username.';
+              },
             ),
             const SizedBox(height: 16),
             TextFormField(

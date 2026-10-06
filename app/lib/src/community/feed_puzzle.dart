@@ -146,7 +146,6 @@ class _FeedPuzzleState extends ConsumerState<FeedPuzzle> with AutomaticKeepAlive
   }
 
   void _correct() {
-    playCorrectSound(ref);
     _step++;
     _phase = _Phase.correct;
     _refresh();
@@ -180,12 +179,14 @@ class _FeedPuzzleState extends ConsumerState<FeedPuzzle> with AutomaticKeepAlive
   /// After a right move: finish, or play the reply.
   void _advance() {
     if (_step >= _solution.length || _pos.isGameOver) {
+      playCorrectSound(ref);
       setState(() => _phase = _Phase.solved);
       return;
     }
     _later(const Duration(milliseconds: 450), () {
       final reply = _parse(_pos, _solution[_step]);
       if (reply == null) {
+        playCorrectSound(ref);
         _phase = _Phase.solved;
         _refresh();
         return;
@@ -193,6 +194,7 @@ class _FeedPuzzleState extends ConsumerState<FeedPuzzle> with AutomaticKeepAlive
       _apply(reply);
       _step++;
       _phase = _step >= _solution.length ? _Phase.solved : _Phase.yourMove;
+      if (_phase == _Phase.solved) playCorrectSound(ref);
       _refresh();
     });
   }
