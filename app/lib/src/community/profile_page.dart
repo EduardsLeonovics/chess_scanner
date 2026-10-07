@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
+import '../backup/library_backup.dart';
+import '../puzzles/puzzle_store.dart';
 import 'community_models.dart';
 import 'community_repository.dart';
 import 'feed_list.dart';
@@ -187,21 +189,49 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     if (mounted) setState(() => _busy = false);
   }
 
+  /// Signing out removes the games from the phone, which a run analyzing
+  /// them can't have.
+  bool _notWhileLoadingGames() {
+    if (!ref.read(puzzleGeneratorProvider).running) return true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Stop loading your games first (Puzzles tab).')),
+    );
+    return false;
+  }
+
   Future<void> _account(_AccountAction action) async {
     final navigator = Navigator.of(context);
     switch (action) {
       case _AccountAction.signOut:
-        if (await runCommunityAction(context, _repo.signOut)) navigator.pop();
+        final backup = ref.read(libraryBackupProvider.notifier);
+        if (!_notWhileLoadingGames()) return;
+        var signedOut = false;
+        if (!await runCommunityAction(context, () async => signedOut = await backup.signOut())) return;
+        if (!signedOut) {
+          if (!mounted) return;
+          final sure = await confirm(
+            context,
+            title: 'Sign out anyway?',
+            message: 'Your latest games and puzzles couldn\'t be saved to your account '
+                '(no connection?). Signing out removes them from this phone.',
+            action: 'Sign out',
+          );
+          if (!sure || !mounted) return;
+          signedOut = await runCommunityAction(context, () => backup.signOut(force: true));
+        }
+        if (signedOut) navigator.pop();
       case _AccountAction.delete:
+        if (!_notWhileLoadingGames()) return;
         final sure = await confirm(
           context,
           title: 'Delete your account?',
-          message: 'Your profile, posts, comments and follows are deleted for good. '
-              'Your puzzles and games on this phone stay.',
+          message: 'Your profile, posts, comments, follows and saved games and puzzles '
+              'are deleted for good, also from this phone.',
           action: 'Delete account',
         );
         if (!sure || !mounted) return;
-        if (await runCommunityAction(context, _repo.deleteAccount, done: 'Your account is deleted.')) {
+        final backup = ref.read(libraryBackupProvider.notifier);
+        if (await runCommunityAction(context, backup.deleteAccount, done: 'Your account is deleted.')) {
           navigator.pop();
         }
     }

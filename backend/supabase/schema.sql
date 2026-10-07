@@ -323,6 +323,46 @@ create table if not exists public.crash_reports (
 
 create index if not exists crash_reports_created_idx on public.crash_reports (created_at desc);
 
+-- Each user's game library, so it comes back after a reinstall or on a new
+-- phone (app/lib/src/backup/library_backup.dart): their Lichess / Chess.com
+-- usernames and the analysis of their games (puzzles with their review
+-- progress, which games were analyzed, skill stats, opening moves). One
+-- row per user, written by the app part by part; only its owner can read
+-- it. The games themselves aren't kept: the sites have them.
+create table if not exists public.libraries (
+  user_id uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  -- The app's PuzzleLibraryNotifier.dataVersion that wrote the analysis.
+  data_version int not null check (data_version between 1 and 1000),
+  accounts jsonb not null default '{}',
+  puzzles jsonb not null default '[]',
+  analyzed_games jsonb not null default '[]',
+  coverage jsonb not null default '{}',
+  game_stats jsonb not null default '{}',
+  opening_games jsonb not null default '[]',
+  updated_at timestamptz not null default now(),
+  -- Thousands of analyzed games take a few MB; this only stops abuse.
+  constraint libraries_size_check check (
+    pg_column_size(accounts) + pg_column_size(puzzles) + pg_column_size(analyzed_games)
+      + pg_column_size(coverage) + pg_column_size(game_stats)
+      + pg_column_size(opening_games) < 30000000
+  )
+);
+
+create or replace function public.touch_library()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists libraries_touch on public.libraries;
+create trigger libraries_touch before update on public.libraries
+  for each row execute function public.touch_library();
+
 -- ---------------------------------------------------------------------------
 -- Row-level security.
 
@@ -334,6 +374,7 @@ alter table public.blocks enable row level security;
 alter table public.reports enable row level security;
 alter table public.post_alerts enable row level security;
 alter table public.crash_reports enable row level security;
+alter table public.libraries enable row level security;
 -- Only email_for_sign_in (security definer) touches this: no policies.
 alter table public.sign_in_failures enable row level security;
 
@@ -416,6 +457,16 @@ create policy "crash reports insertable" on public.crash_reports
   for insert to anon, authenticated
   with check (user_id is null or user_id = auth.uid());
 grant insert on public.crash_reports to anon, authenticated;
+
+drop policy if exists "own library readable" on public.libraries;
+create policy "own library readable" on public.libraries
+  for select to authenticated using (user_id = auth.uid());
+drop policy if exists "own library insertable" on public.libraries;
+create policy "own library insertable" on public.libraries
+  for insert to authenticated with check (user_id = auth.uid());
+drop policy if exists "own library updatable" on public.libraries;
+create policy "own library updatable" on public.libraries
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- A post's position and solution must at least be well formed, so one
 -- broken post can't break everyone's feed. NOT VALID: rows from before

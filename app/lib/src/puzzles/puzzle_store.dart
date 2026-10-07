@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../accounts/accounts.dart';
 import '../accounts/game_sources.dart';
+import '../community/community_repository.dart';
 import '../diagnostics/crash_log.dart';
 import '../engine/engine_service.dart';
 import '../openings/repertoire.dart';
@@ -140,7 +141,7 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   /// blunder" puzzles. Games analyzed under an older version are forgotten
   /// and re-analyzed. Puzzles and the opening games (just the moves played,
   /// which no analysis change affects) are kept.
-  static const _dataVersion = 5;
+  static const dataVersion = 5;
 
   /// What's in storage, part by part (compared by identity), so a save only
   /// rewrites the parts that changed.
@@ -164,11 +165,11 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
       if (pending != null) _write(pending);
     });
     final prefs = _prefs = ref.watch(sharedPreferencesProvider);
-    if ((prefs.getInt(_versionKey) ?? 1) < _dataVersion) {
+    if ((prefs.getInt(_versionKey) ?? 1) < dataVersion) {
       prefs.remove(_gamesKey);
       prefs.remove(_coverageKey);
       prefs.remove(_statsKey);
-      prefs.setInt(_versionKey, _dataVersion);
+      prefs.setInt(_versionKey, dataVersion);
     }
     var puzzles = <Puzzle>[];
     var coverage = <String, Coverage>{};
@@ -308,6 +309,10 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   /// Deletes all puzzles and forgets which games were analyzed, so the next
   /// load starts again from the latest games.
   void deleteAll() => _save(const PuzzleLibrary());
+
+  /// Replaces everything but the queue with [library] (a backup merged
+  /// with this phone's library, see `library_backup.dart`).
+  void restore(PuzzleLibrary library) => _save(library.copyWith(queue: () => state.queue));
 
   /// The library waiting for a deferred save.
   PuzzleLibrary? _pending;
@@ -514,7 +519,9 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
   }
 
   /// Games an interrupted run left to analyze, if it can be continued.
-  int get resumable => ref.read(accountsProvider).any ? ref.read(puzzleLibraryProvider).queuedGames : 0;
+  int get resumable => ref.read(accountsProvider).any && ref.read(signedInProvider)
+      ? ref.read(puzzleLibraryProvider).queuedGames
+      : 0;
 
   void _log(Object error, StackTrace stack) {
     debugPrint('Puzzle generator: $error\n$stack');

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../accounts/accounts.dart';
+import '../community/community_repository.dart';
 import '../accounts/game_sources.dart' show GameSpeed;
 import '../home/speed_filter.dart';
 import '../puzzles/generator_banner.dart';
@@ -40,7 +41,7 @@ class _SkillsPageState extends ConsumerState<SkillsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final accounts = ref.watch(accountsProvider);
+    final connected = ref.watch(accountsProvider).any && ref.watch(signedInProvider);
     final library = ref.watch(puzzleLibraryProvider);
     final generator = ref.watch(puzzleGeneratorProvider);
     final all = library.gameStats.values;
@@ -68,7 +69,7 @@ class _SkillsPageState extends ConsumerState<SkillsPage> {
             Expanded(
               child: profile.games == 0
                   ? _Empty(
-                      connected: accounts.any,
+                      connected: connected,
                       running: generator.running,
                       onLoad: () => ref.read(puzzleGeneratorProvider.notifier).run(),
                     )
@@ -499,7 +500,8 @@ class _Empty extends StatelessWidget {
                 ),
               )
             : (
-                'Connect your Lichess or Chess.com account to see your skill profile.',
+                'Sign in to ChessGeek and connect your Lichess or Chess.com account to see '
+                    'your skill profile.',
                 FilledButton.icon(
                   onPressed: () => Navigator.of(context).push(settingsRoute()),
                   icon: const Icon(Icons.link),

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../accounts/accounts.dart';
 import '../accounts/game_sources.dart';
+import '../backup/library_backup.dart';
+import '../community/auth_page.dart';
+import '../community/community_repository.dart';
 import '../puzzles/puzzle_store.dart';
 
 const _ink = Color(0xFF29313B);
@@ -10,18 +13,35 @@ const _muted = Color(0xFF8A919B);
 const _line = Color(0xFFE6E8EB);
 
 /// "Connect to Lichess" / "Connect to Chess.com", or the connected username
-/// with a disconnect button.
+/// with a disconnect button. Connecting needs a ChessGeek account, which
+/// keeps the games' analysis (see `backup/library_backup.dart`).
 class AccountsSection extends ConsumerWidget {
   const AccountsSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountsProvider);
+    final signedIn = ref.watch(signedInProvider);
+    final hasServer = ref.watch(communityProvider) != null;
+    final muted = Theme.of(context).textTheme.bodySmall?.copyWith(color: _muted);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final site in ChessSite.values) ...[
-          _AccountTile(site: site, username: accounts.of(site)),
+        for (final site in ChessSite.values)
+          if (signedIn || accounts.of(site) != null) ...[
+            _AccountTile(site: site, username: accounts.of(site)),
+            const SizedBox(height: 10),
+          ],
+        if (!signedIn && hasServer) ...[
+          FilledButton.icon(
+            onPressed: () => ensureSignedIn(context, ref),
+            icon: const Icon(Icons.person_outline),
+            label: const Text('Sign in to connect your accounts'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
           const SizedBox(height: 10),
         ],
         if (accounts.any) ...[
@@ -31,14 +51,34 @@ class AccountsSection extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
         ],
+        if (signedIn)
+          if (_backupLabel(ref.watch(libraryBackupProvider)) case final label?) ...[
+            Text(label, style: muted),
+            const SizedBox(height: 6),
+          ],
         Text(
-          'Used to turn mistakes from your own games into puzzles. '
-          'Only your public games are read — no password needed.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _muted),
+          switch ((signedIn, hasServer)) {
+            (true, _) => 'Used to turn mistakes from your own games into puzzles. '
+                'Only your public games are read — no password needed.',
+            (false, true) => 'Connect Lichess or Chess.com with a free ChessGeek account. '
+                'Your analyzed games and puzzles are saved to it, so they come back '
+                'after a reinstall or on a new phone.',
+            (false, false) => 'Connecting accounts needs the ChessGeek server, which this '
+                'version of the app doesn\'t have.',
+          },
+          style: muted,
         ),
       ],
     );
   }
+
+  static String? _backupLabel(BackupStatus status) => switch (status) {
+        BackupStatus.off => null,
+        BackupStatus.syncing => 'Saving to your ChessGeek account…',
+        BackupStatus.saved => 'Saved to your ChessGeek account.',
+        BackupStatus.failed => 'Not saved to your ChessGeek account yet. '
+            'It\'s tried again on the next change.',
+      };
 }
 
 class _AccountTile extends ConsumerWidget {

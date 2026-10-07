@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/analysis_page.dart';
+import '../backup/library_backup.dart';
 import '../community/community_page.dart';
 import '../diagnostics/crash_log.dart';
 import '../privacy/consent.dart';
@@ -49,6 +50,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void initState() {
     super.initState();
+    // Starts keeping the library in the user's account (and restores it
+    // when they sign in).
+    ref.read(libraryBackupProvider);
     _links = listenForPositionLinks(
       onLink: (position) {
         ref.read(homeTabProvider.notifier).select(0);

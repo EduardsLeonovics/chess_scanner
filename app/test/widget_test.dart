@@ -1,4 +1,5 @@
 import 'package:chess_scanner/main.dart';
+import 'package:chess_scanner/src/community/community_repository.dart';
 import 'package:chess_scanner/src/diagnostics/crash_log.dart';
 import 'package:chess_scanner/src/settings/appearance.dart';
 import 'package:chess_scanner/src/settings/settings_page.dart';
@@ -9,13 +10,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<SharedPreferences> _pumpApp(WidgetTester tester) async {
+Future<SharedPreferences> _pumpApp(WidgetTester tester, {bool signedIn = false}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       crashLogProvider.overrideWithValue(CrashLog(prefs)),
+      if (signedIn) signedInProvider.overrideWithValue(true),
     ],
     child: const ChessGeekApp(),
   ));
@@ -132,7 +134,8 @@ void main() {
   });
 
   testWidgets('settings change and remember the board theme', (tester) async {
-    final prefs = await _pumpApp(tester);
+    // Connecting accounts needs a ChessGeek sign-in.
+    final prefs = await _pumpApp(tester, signedIn: true);
 
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();

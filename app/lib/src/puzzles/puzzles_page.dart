@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../accounts/accounts.dart';
+import '../community/community_repository.dart';
 import '../settings/settings_page.dart';
 import 'puzzle.dart';
 import 'generator_banner.dart';
@@ -81,13 +82,14 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final accounts = ref.watch(accountsProvider);
+    // Loading games needs a ChessGeek account: their analysis is kept there.
+    final connected = ref.watch(accountsProvider).any && ref.watch(signedInProvider);
     final library = ref.watch(puzzleLibraryProvider);
     final categories = ref.watch(puzzleCategoriesProvider);
     final generator = ref.watch(puzzleGeneratorProvider);
     final visible = _visiblePuzzles(library, categories);
     final current = _current(visible);
-    final showLoadButton = _offerLoad && accounts.any && !generator.running;
+    final showLoadButton = _offerLoad && connected && !generator.running;
 
     return Scaffold(
       appBar: AppBar(
@@ -115,7 +117,7 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
                   Positioned.fill(
                     child: current == null
                         ? _EmptyState(
-                            connected: accounts.any,
+                            connected: connected,
                             hasPuzzles: library.puzzles.isNotEmpty,
                             noCategories: categories.isEmpty,
                             running: generator.running,
@@ -281,8 +283,8 @@ class _EmptyState extends StatelessWidget {
       (_, _, true) when !hasPuzzles => ('Puzzles will appear here as your games are analyzed.', null),
       (_, true, _) => ('No puzzles in these categories yet.', null),
       (false, _, _) => (
-          'Connect your Lichess or Chess.com account to turn the moments you '
-              'missed in your own games into puzzles.',
+          'Sign in to ChessGeek and connect your Lichess or Chess.com account to turn '
+              'the moments you missed in your own games into puzzles.',
           FilledButton.icon(
             onPressed: () => Navigator.of(context).push(settingsRoute()),
             icon: const Icon(Icons.link),

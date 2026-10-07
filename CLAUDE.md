@@ -26,8 +26,10 @@ Raise these with the user until each is done, then delete its line:
   European regulations message (and the US states one) and enable "ask for
   consent for your own use" with TCF purposes 1, 8 and 9 — the app's usage
   statistics read those (`app/lib/src/privacy/consent.dart`).
-- **Backend deploy:** re-run `backend/supabase/schema.sql` and deploy the
-  `sign-in-with-username` Edge Function (see backend/supabase/README.md).
+- **Production email:** Supabase's built-in mailer only sends a few
+  emails an hour. Get a domain, set up Resend (or similar) as custom SMTP
+  in Supabase, check the reset-password template's link, and raise the
+  email rate limit.
 - **Privacy policy:** drafted at `share_site/chessgeek/privacy/index.html`;
   fill in the highlighted placeholders (name/company, address, support
   email, Supabase region, date) and publish it. **Terms of Use:** not
@@ -65,6 +67,9 @@ Chess.com games.
 - `skills/`, `openings/` — stats and repertoire from analyzed games; the
   opening book is `assets/openings/openings.tsv`.
 - `community/` — Supabase feed, posts, comments, profiles, auth.
+- `backup/` — `LibraryBackup`: keeps the signed-in user's linked
+  usernames and game library (not the queue) in the `libraries` table,
+  merged with the phone's on sign-in, uploaded part by part on change.
 - `settings/`, `home/`, `sound/`, `share/`, `diagnostics/` (crash log,
   uploaded to the `crash_reports` table when the user agrees).
 
@@ -120,7 +125,11 @@ Chess.com games.
   players, so every play leaked one.
 - Persisted data: SharedPreferences, one key per part of the library
   (`puzzle_store.dart`), written only when that part changes. Changing a
-  stored format needs a migration.
+  stored format needs a migration, on the phone and for backups already
+  in the `libraries` table (`LibraryBackupData.fromRow`).
+- Connecting Lichess / Chess.com and loading games need a ChessGeek
+  sign-in (`signedInProvider`). Signing out or deleting the account goes
+  through `LibraryBackup`, which removes the library from the phone.
 
 ## Commands (run from `app/`)
 

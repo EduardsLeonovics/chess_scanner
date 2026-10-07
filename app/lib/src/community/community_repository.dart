@@ -30,6 +30,11 @@ final communityUserProvider = StreamProvider<User?>((ref) {
   return repo.userChanges;
 });
 
+/// Whether the user is signed in to their ChessGeek account. Connecting
+/// Lichess / Chess.com and loading games need it, so the games' analysis
+/// is kept in the account (see `backup/library_backup.dart`).
+final signedInProvider = Provider<bool>((ref) => ref.watch(communityUserProvider).value != null);
+
 /// Accounts, posts, comments and follows, stored in Supabase (schema in
 /// `backend/supabase/schema.sql`). Every call throws [CommunityException]
 /// with a readable message on failure.

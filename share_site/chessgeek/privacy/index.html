@@ -45,12 +45,13 @@
     <thead><tr><th>Data</th><th>When</th><th>Where it goes</th></tr></thead>
     <tbody>
       <tr><td>Photos and screenshots you scan</td><td>Every scan</td><td>Nowhere: processed on your phone</td></tr>
-      <tr><td>Your games, puzzles, progress, settings</td><td>Always</td><td>Nowhere: stored on your phone</td></tr>
+      <tr><td>Your settings, and the games waiting to be analyzed</td><td>Always</td><td>Nowhere: stored on your phone</td></tr>
+      <tr><td>Connected usernames, and the analysis of your games (puzzles, progress, skill stats, openings)</td><td>When you connect Lichess / Chess.com (needs a ChessGeek account)</td><td>Our server (Supabase), as a backup in your account</td></tr>
       <tr><td>Lichess / Chess.com username you connect</td><td>Loading your games</td><td>Lichess or Chess.com, to download your public games</td></tr>
       <tr><td>Advertising data</td><td>While ads show</td><td>Google AdMob (personalised only with your consent)</td></tr>
       <tr><td>Anonymous usage totals</td><td>Only if you allow it</td><td>Our server, as daily counts with no identifiers</td></tr>
       <tr><td>Crash reports</td><td>Only when you tap “Send”</td><td>Our server</td></tr>
-      <tr><td>Email, username, posts, comments, profile picture</td><td>Only if you create a community account</td><td>Our server (Supabase)</td></tr>
+      <tr><td>Email, username, posts, comments, profile picture</td><td>Only if you create a ChessGeek account</td><td>Our server (Supabase)</td></tr>
     </tbody>
   </table>
   </div>
@@ -58,7 +59,11 @@
   <h2 id="collect">What we handle and why</h2>
 
   <h3>On your phone only</h3>
-  <p>Photos and screenshots you scan are read on your phone and never uploaded. The games downloaded for puzzles, the puzzles found in them, your puzzle progress, skill statistics, opening repertoire and settings are stored only on your phone. Uninstalling the app, or Settings → Puzzles → delete, removes them.</p>
+  <p>Photos and screenshots you scan are read on your phone and never uploaded. Your settings, and games downloaded but not yet analyzed, are stored only on your phone.</p>
+
+  <h3>Your game library, kept in your account</h3>
+  <p>Connecting a Lichess or Chess.com account requires a ChessGeek account. The usernames you connect and what the app finds in your games (the puzzles with your progress on them, which games were analyzed, your skill statistics and the first moves of your games for the opening study) are stored on your phone and backed up to your ChessGeek account, so they come back when you reinstall the app or sign in on another phone. Only you can read this backup. The games themselves aren't uploaded: they stay on Lichess and Chess.com. Signing out removes the library from your phone (it stays in your account); deleting your account deletes the backup.</p>
+  <p><em>Legal basis:</em> providing the backup that comes with your account (GDPR Art. 6(1)(b)).</p>
 
   <h3>Loading your games from Lichess or Chess.com</h3>
   <p>When you connect an account by username, the app asks Lichess (lichess.org) or Chess.com for that player's public games. Your phone sends the username to them directly, along with your IP address as any internet request does; we don't receive it. Their own privacy policies apply. ChessGeek is not affiliated with Lichess or Chess.com.</p>
@@ -99,7 +104,7 @@
 
   <h2 id="retention">How long we keep it</h2>
   <ul>
-    <li>Account data, posts and comments: until you delete them or your account.</li>
+    <li>Account data, posts, comments and your game library backup: until you delete them or your account.</li>
     <li>Reports and the copies of reported content: as long as needed to handle the report, then up to 12 months as a moderation record.</li>
     <li>Crash reports: up to 12 months.</li>
     <li>Failed sign-in attempts: one hour.</li>
@@ -107,9 +112,9 @@
   </ul>
 
   <h2 id="delete">Deleting your account</h2>
-  <p><strong>In the app:</strong> open the Community tab, tap the profile icon at the top right, then the menu (⋮) → <strong>Delete account</strong>. This immediately deletes your account, profile, profile picture, posts, comments, follows, blocks and post alerts.</p>
+  <p><strong>In the app:</strong> open the Community tab, tap the profile icon at the top right, then the menu (⋮) → <strong>Delete account</strong>. This immediately deletes your account, profile, profile picture, posts, comments, follows, blocks, post alerts and your game library backup, and removes the library from your phone.</p>
   <p><strong>Without the app:</strong> email <span class="fill">[support@chessgeek.com]</span> from the address you signed up with and ask us to delete your account. We'll do so within 30 days and confirm.</p>
-  <p>Reports about content you posted may be kept as described above. Puzzles and games on your phone are not affected; uninstall the app to remove them.</p>
+  <p>Reports about content you posted may be kept as described above.</p>
 
   <h2 id="rights">Your rights</h2>
   <p>You can ask to access, correct or delete your personal data, to restrict or object to its use, and to receive it in a portable format. Where we rely on consent you can withdraw it at any time (Settings → Privacy) without affecting what happened before. Write to <span class="fill">[support@chessgeek.com]</span>; we reply within one month.</p>

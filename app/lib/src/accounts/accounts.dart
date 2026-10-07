@@ -23,6 +23,15 @@ class Accounts {
 
   bool get any => lichess != null || chessCom != null;
 
+  Map<String, dynamic> toJson() => {
+        for (final site in ChessSite.values) site.name: ?of(site),
+      };
+
+  factory Accounts.fromJson(Map<String, dynamic> json) => Accounts(
+        lichess: json[ChessSite.lichess.name] as String?,
+        chessCom: json[ChessSite.chessCom.name] as String?,
+      );
+
   String? of(ChessSite site) => switch (site) {
         ChessSite.lichess => lichess,
         ChessSite.chessCom => chessCom,
@@ -51,16 +60,22 @@ class AccountsNotifier extends Notifier<Accounts> {
   }
 
   /// Saves [username] (as verified with the site) or removes the account when null.
-  Future<void> set(ChessSite site, String? username) async {
-    state = switch (site) {
-      ChessSite.lichess => Accounts(lichess: username, chessCom: state.chessCom),
-      ChessSite.chessCom => Accounts(lichess: state.lichess, chessCom: username),
-    };
+  Future<void> set(ChessSite site, String? username) => replace(switch (site) {
+        ChessSite.lichess => Accounts(lichess: username, chessCom: state.chessCom),
+        ChessSite.chessCom => Accounts(lichess: state.lichess, chessCom: username),
+      });
+
+  /// Saves both accounts at once.
+  Future<void> replace(Accounts accounts) async {
+    state = accounts;
     final prefs = ref.read(sharedPreferencesProvider);
-    if (username == null) {
-      await prefs.remove(_key(site));
-    } else {
-      await prefs.setString(_key(site), username);
+    for (final site in ChessSite.values) {
+      final username = accounts.of(site);
+      if (username == null) {
+        await prefs.remove(_key(site));
+      } else {
+        await prefs.setString(_key(site), username);
+      }
     }
   }
 }
