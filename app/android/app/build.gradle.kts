@@ -54,6 +54,7 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            proguardFiles("proguard-rules.pro")
         }
     }
 }
