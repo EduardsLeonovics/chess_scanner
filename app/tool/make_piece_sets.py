@@ -1,4 +1,4 @@
-"""Draws ChessHive's own piece sets for chessground: Geo and Ink.
+"""Draws ChessHive's own piece sets for chessground: Geo, Ink and Hive.
 
 Every piece is built from simple shapes in a unit square (x right, y down):
 smooth turned profiles (a Staunton body is the same curve mirrored), a
@@ -250,16 +250,104 @@ def ink(role):
 # ---------------------------------------------------------------------------
 # Rendering
 
+# ---------------------------------------------------------------------------
+# Hive: chunky, rounded Staunton pieces in the spirit of chess.com's default
+# set. Each part (base, body, collar, head) is its own outlined shape,
+# stacked bottom to top, with a soft shaded crescent along its right side.
+
+def hive(role):
+    base = rrect(0.2, 0.765, 0.8, 0.885, 0.045)
+
+    def collar(y, half, h=0.07):
+        return rrect(0.5 - half, y, 0.5 + half, y + h, h / 2)
+
+    if role == 'P':
+        return [lathe([(0.46, 0.09), (0.56, 0.1), (0.67, 0.15), (0.775, 0.225)]), base,
+                collar(0.445, 0.175), ellipse(0.5, 0.315, 0.14)], []
+    if role == 'R':
+        top = poly((0.235, 0.385), (0.235, 0.165), (0.355, 0.165), (0.355, 0.235), (0.44, 0.235),
+                   (0.44, 0.165), (0.56, 0.165), (0.56, 0.235), (0.645, 0.235), (0.645, 0.165),
+                   (0.765, 0.165), (0.765, 0.385))
+        return [lathe([(0.37, 0.155), (0.56, 0.155), (0.7, 0.185), (0.775, 0.245)]), base,
+                top, collar(0.36, 0.235)], []
+    if role == 'B':
+        head = lathe([(0.155, 0.0), (0.185, 0.07), (0.255, 0.14), (0.36, 0.17), (0.455, 0.155),
+                      (0.525, 0.09), (0.545, 0.0)])
+        return [lathe([(0.55, 0.085), (0.65, 0.105), (0.72, 0.16), (0.775, 0.23)]), base,
+                collar(0.515, 0.19), head, ellipse(0.5, 0.125, 0.055)], \
+            [line((0.455, 0.42), (0.575, 0.285), w=0.032)]
+    if role == 'N':
+        head = spline((0.3, 0.78), (0.31, 0.66), (0.38, 0.575), (0.45, 0.525), (0.36, 0.52), (0.26, 0.53),
+                      (0.185, 0.505), (0.145, 0.445), (0.175, 0.37), (0.27, 0.3), (0.34, 0.225),
+                      (0.365, 0.12), (0.445, 0.17), (0.505, 0.115), (0.56, 0.19), (0.67, 0.235),
+                      (0.765, 0.355), (0.815, 0.52), (0.805, 0.665), (0.775, 0.78))
+        return [head, base], [('ellipse', (0.355, 0.305, 0.034, 0.034)),
+                              ('ellipse', (0.2, 0.44, 0.017, 0.017)),
+                              line((0.57, 0.245), (0.68, 0.34), (0.735, 0.49), (0.735, 0.64), w=0.03)]
+    if role == 'Q':
+        crown = poly((0.195, 0.27), (0.3, 0.48), (0.35, 0.215), (0.42, 0.465), (0.5, 0.18), (0.58, 0.465),
+                     (0.65, 0.215), (0.7, 0.48), (0.805, 0.27), (0.73, 0.565), (0.27, 0.565))
+        balls = [ellipse(x, y, 0.047) for x, y in
+                 ((0.195, 0.25), (0.35, 0.195), (0.5, 0.155), (0.65, 0.195), (0.805, 0.25))]
+        return [lathe([(0.5, 0.125), (0.6, 0.135), (0.7, 0.18), (0.775, 0.24)]), base, crown] + balls + \
+            [collar(0.54, 0.235)], []
+    if role == 'K':
+        cup = lathe([(0.27, 0.165), (0.33, 0.22), (0.41, 0.22), (0.48, 0.17)])
+        # The cross rises out of the crown: drawn first, the crown covers its foot.
+        return [lathe([(0.48, 0.125), (0.6, 0.135), (0.7, 0.18), (0.775, 0.24)]), base,
+                poly((0.46, 0.045), (0.54, 0.045), (0.54, 0.1), (0.625, 0.1), (0.625, 0.17), (0.54, 0.17),
+                     (0.54, 0.3), (0.46, 0.3), (0.46, 0.17), (0.375, 0.17), (0.375, 0.1), (0.46, 0.1)), cup,
+                collar(0.465, 0.235)], []
+
+
 STYLES = {
     'geo': dict(make=geo, outline=0.022,
                 colors={'w': ('#fbfbf8', '#1c1c1c', '#1c1c1c'), 'b': ('#2a2a2c', '#0b0b0b', '#e9e9e4')}),
     'ink': dict(make=ink, outline=0.016,
                 colors={'w': ('#ffffff', '#0e0e0e', '#0e0e0e'), 'b': ('#141414', '#000000', '#f4f4f4')}),
+    # fill, outline, detail, shade
+    'hive': dict(make=hive, outline=0.028, parts=True,
+                 colors={'w': ('#ffffff', '#1a1a1a', '#1a1a1a', '#d4d4d4'),
+                         'b': ('#3d3d3d', '#000000', '#c8c8c8', '#262626')}),
 }
+
+
+def _grow(mask, radius):
+    """[mask] grown by [radius] px: blur, re-threshold, max filter."""
+    grown = mask.filter(ImageFilter.GaussianBlur(radius / 2)).point(lambda v: 255 if v > 6 else 0)
+    return grown.filter(ImageFilter.MaxFilter(int(radius) // 2 * 2 + 1))
+
+
+def render_parts(spec, color, role):
+    """Hive: each part outlined on its own, stacked bottom to top, with a
+    shaded crescent on its right (the part less itself moved left)."""
+    parts, details = spec['make'](role)
+    fill, outline, detail, shade = spec['colors'][color]
+    radius = spec['outline'] * S
+    out = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    silhouette = Image.new('L', (S, S), 0)
+    shift = round(0.055 * S)
+    for shape in parts:
+        mask = Image.new('L', (S, S), 0)
+        draw_shape(ImageDraw.Draw(mask), shape, 255)
+        silhouette = ImageChops.lighter(silhouette, mask)
+        out.paste(outline, (0, 0), _grow(mask, radius))
+        out.paste(fill, (0, 0), mask)
+        moved = ImageChops.offset(mask, -shift, 0)
+        crescent = ImageChops.subtract(mask, moved).filter(ImageFilter.GaussianBlur(px(0.006)))
+        out.paste(shade, (0, 0), ImageChops.multiply(crescent, mask))
+    layer = Image.new('L', (S, S), 0)
+    dl = ImageDraw.Draw(layer)
+    for shape in details:
+        draw_shape(dl, shape, 255)
+    out.paste(detail, (0, 0), ImageChops.multiply(layer, silhouette))
+    return out
 
 
 def render(style, color, role):
     spec = STYLES[style]
+    if spec.get('parts'):
+        return render_parts(spec, color, role)
     body, details = spec['make'](role)
     fill, outline, detail = spec['colors'][color]
 

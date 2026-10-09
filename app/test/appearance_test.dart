@@ -57,7 +57,7 @@ void main() {
       isNotEmpty,
     );
     expect([for (final (_, label) in pieceStyles) label], [
-      'Classic', 'Merida', 'Geo', 'Ink', 'Modern', 'Celtic', 'Fantasy', 'Spatial', 'Pixel',
+      'Classic', 'Merida', 'Geo', 'Ink', 'Hive', 'Modern', 'Celtic', 'Fantasy', 'Spatial',
     ]);
   });
 

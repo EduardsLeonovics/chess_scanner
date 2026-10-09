@@ -110,7 +110,7 @@ Chess.com games.
   Stockfish's `position` command also refuses them (patch in `uci.cpp`).
 - Piece sets: only sets licensed for commercial use (the app shows ads).
   chessground is vendored in `app/third_party/chessground` with the rest
-  removed; licences in its LICENSES.md. Geo and Ink are our own, drawn by
+  removed; licences in its LICENSES.md. Geo, Ink and Hive are our own, drawn by
   `app/tool/make_piece_sets.py` (don't reuse a chessground set's folder
   name: `pixel` is lichess's). Every offered set (`pieceStyles`) must be
   black and white by default (tinted ones go in `neutralizedSets`) and

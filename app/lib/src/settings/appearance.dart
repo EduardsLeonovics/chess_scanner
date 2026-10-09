@@ -49,11 +49,11 @@ const pieceStyles = [
   (PieceSet.merida, 'Merida'),
   (PieceSet.geo, 'Geo'),
   (PieceSet.ink, 'Ink'),
+  (PieceSet.hive, 'Hive'),
   (PieceSet.mpchess, 'Modern'),
   (PieceSet.celtic, 'Celtic'),
   (PieceSet.fantasy, 'Fantasy'),
   (PieceSet.spatial, 'Spatial'),
-  (PieceSet.pixel, 'Pixel'),
 ];
 
 /// Sets drawn in tinted greys (Celtic's slate-blue black pieces): always

@@ -22,7 +22,8 @@ enum PieceSet {
   letter('Letter', PieceSet.letterAssets),
   totoy('Totoy', PieceSet.totoyAssets),
   geo('Geo', PieceSet.geoAssets),
-  ink('Ink', PieceSet.inkAssets);
+  ink('Ink', PieceSet.inkAssets),
+  hive('Hive', PieceSet.hiveAssets);
 
   const PieceSet(this.label, this.assets);
 
@@ -302,6 +303,22 @@ enum PieceSet {
     PieceKind.whiteBishop: AssetImage('$_pieceSetsPath/ink/wB.webp', package: 'chessground'),
     PieceKind.whiteQueen: AssetImage('$_pieceSetsPath/ink/wQ.webp', package: 'chessground'),
     PieceKind.whiteKing: AssetImage('$_pieceSetsPath/ink/wK.webp', package: 'chessground'),
+  };
+
+  /// The [PieceAssets] for the 'Hive' piece set (ChessHive's own).
+  static const PieceAssets hiveAssets = {
+    PieceKind.blackRook: AssetImage('$_pieceSetsPath/hive/bR.webp', package: 'chessground'),
+    PieceKind.blackPawn: AssetImage('$_pieceSetsPath/hive/bP.webp', package: 'chessground'),
+    PieceKind.blackKnight: AssetImage('$_pieceSetsPath/hive/bN.webp', package: 'chessground'),
+    PieceKind.blackBishop: AssetImage('$_pieceSetsPath/hive/bB.webp', package: 'chessground'),
+    PieceKind.blackQueen: AssetImage('$_pieceSetsPath/hive/bQ.webp', package: 'chessground'),
+    PieceKind.blackKing: AssetImage('$_pieceSetsPath/hive/bK.webp', package: 'chessground'),
+    PieceKind.whiteRook: AssetImage('$_pieceSetsPath/hive/wR.webp', package: 'chessground'),
+    PieceKind.whitePawn: AssetImage('$_pieceSetsPath/hive/wP.webp', package: 'chessground'),
+    PieceKind.whiteKnight: AssetImage('$_pieceSetsPath/hive/wN.webp', package: 'chessground'),
+    PieceKind.whiteBishop: AssetImage('$_pieceSetsPath/hive/wB.webp', package: 'chessground'),
+    PieceKind.whiteQueen: AssetImage('$_pieceSetsPath/hive/wQ.webp', package: 'chessground'),
+    PieceKind.whiteKing: AssetImage('$_pieceSetsPath/hive/wK.webp', package: 'chessground'),
   };
 
 }

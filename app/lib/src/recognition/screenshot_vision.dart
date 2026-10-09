@@ -1198,7 +1198,15 @@ bool _makePlausible(List<_SquareReading> readings) {
         if (o.color == s.color && roleOf[o] == Role.queen && o.relHeight > s.relHeight + 0.005) shorterKing += 0.2;
       }
     }
-    return total - 10 * bad - unusual - shorterKing;
+    // With much material left, kings keep to the outer two ranks (they only
+    // walk to the middle in endgames): a tie-breaker, like the height.
+    var centralKing = 0.0;
+    if (readings.length >= 16) {
+      for (final s in readings) {
+        if (roleOf[s] == Role.king && s.row >= 2 && s.row <= 5) centralKing += 0.05;
+      }
+    }
+    return total - 10 * bad - unusual - shorterKing - centralKing;
   }
 
   // Few groups (the usual case): try every combination of roles, or of

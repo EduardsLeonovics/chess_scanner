@@ -41,4 +41,5 @@ flutter:
     - assets/piece_sets/totoy/
     - assets/piece_sets/geo/
     - assets/piece_sets/ink/
+    - assets/piece_sets/hive/
     - assets/boards/

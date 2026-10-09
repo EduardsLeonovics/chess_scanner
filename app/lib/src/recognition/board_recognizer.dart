@@ -27,6 +27,7 @@ const templateSets = [
   PieceSet.rhosgfx,
   PieceSet.geo,
   PieceSet.ink,
+  PieceSet.hive,
 ];
 
 List<PieceTemplate>? _templates;
