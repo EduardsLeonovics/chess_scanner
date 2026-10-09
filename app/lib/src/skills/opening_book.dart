@@ -7,18 +7,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Every position that occurs in a named opening line ("theory"), from the
 /// Lichess chess-openings data set bundled in `assets/openings/`.
 class OpeningBook {
-  OpeningBook._(this._positions, this._continued, this._names);
+  OpeningBook._(this._positions, this._continued, this._names, this._families);
 
   /// Builds the book from the data set's TSV text (`eco \t name \t pgn`).
   factory OpeningBook.parse(String tsv) {
     final positions = <String>{_key(Chess.initial)};
     final continued = <String>{};
     final names = <String, String>{};
+    final families = <String, Set<String>>{};
     for (final line in tsv.split('\n')) {
       if (line.isEmpty || line.startsWith('#') || line.startsWith('eco\t')) continue;
       final columns = line.split('\t');
       if (columns.length < 3) continue;
       Position pos = Chess.initial;
+      final family = families.putIfAbsent(familyOf(columns[1]), () => {_key(Chess.initial)});
       var complete = true;
       for (final token in columns[2].split(' ')) {
         if (token.isEmpty || token.endsWith('.')) continue;
@@ -30,18 +32,31 @@ class OpeningBook {
         continued.add(_key(pos));
         pos = pos.play(move);
         positions.add(_key(pos));
+        family.add(_key(pos));
       }
       // A line names the position it ends in (first name wins).
       if (complete) names.putIfAbsent(_key(pos), () => columns[1]);
     }
-    return OpeningBook._(positions, continued, names);
+    return OpeningBook._(positions, continued, names, families);
   }
+
+  /// The family part of a full opening name: "Sicilian Defense: Najdorf
+  /// Variation" -> "Sicilian Defense"; "Rapport-Jobava System, with e6" ->
+  /// "Rapport-Jobava System".
+  static String familyOf(String name) => name.split(':').first.split(',').first.trim();
 
   final Set<String> _positions;
 
   /// Positions some book line plays on from.
   final Set<String> _continued;
   final Map<String, String> _names;
+
+  /// Per opening family, every position on its named lines.
+  final Map<String, Set<String>> _families;
+
+  /// Whether [position] lies on one of [family]'s own lines: the moves that
+  /// make the opening what it is (1.d4 d5 2.Nc3 for the Rapport-Jobava).
+  bool inFamily(String family, Position position) => _families[family]?.contains(_key(position)) ?? false;
 
   int get size => _positions.length;
 

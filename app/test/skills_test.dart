@@ -64,6 +64,17 @@ void main() {
       expect(book.contains(pos.play(pos.parseSan('exd5')!)), isFalse);
     });
 
+    test("knows each opening's own moves", () {
+      final jobava = OpeningBook.parse('eco\tname\tpgn\n'
+          'D01\tRapport-Jobava System\t1. d4 d5 2. Nc3 Nf6 3. Bf4\n'
+          "D06\tQueen's Gambit\t1. d4 d5 2. c4\n");
+      Position play(List<String> sans) =>
+          sans.fold<Position>(Chess.initial, (pos, san) => pos.play(pos.parseSan(san)!));
+      expect(jobava.inFamily('Rapport-Jobava System', play(['d4', 'd5', 'Nc3'])), isTrue);
+      expect(jobava.inFamily('Rapport-Jobava System', play(['d4', 'd5', 'c4'])), isFalse);
+      expect(jobava.inFamily("Queen's Gambit", play(['d4', 'd5', 'c4'])), isTrue);
+    });
+
     test('counts each distinct position once', () {
       // Start, e4, e4 e6, +d4, +d5, +exd5, d4, d4 d5.
       expect(book.size, 8);
@@ -117,13 +128,35 @@ void main() {
     expect(left.leftTheory, isTrue);
   });
 
-  test('a book line followed to its end scores full marks once it is long enough', () {
-    GameSkillStats game(int theory) =>
-        GameSkillStats(playedAt: DateTime(2026), theoryMoves: theory, theoryExhausted: true);
-    final deep = SkillProfile.from([game(8), game(8), game(8)]);
-    expect(deep.scores[Skill.openings]!.value, 100);
-    final shallow = SkillProfile.from([game(2), game(2), game(2)]);
-    expect(shallow.scores[Skill.openings]!.value, isNull, reason: 'too short to say anything');
+  test('the openings score is opening accuracy, once there are enough moves', () {
+    GameSkillStats game(int moves, double accuracy) =>
+        GameSkillStats(playedAt: DateTime(2026), openingMoves: moves, openingAccuracy: accuracy);
+    final enough = SkillProfile.from([game(10, 900), game(10, 900), game(10, 900)]);
+    expect(enough.scores[Skill.openings]!.value, 90);
+    expect(enough.scores[Skill.openings]!.basis, startsWith('30 opening moves, 90% accurate'));
+    final few = SkillProfile.from([game(5, 500)]);
+    expect(few.scores[Skill.openings]!.value, isNull, reason: 'too few moves to say anything');
+  });
+
+  test('a move into the named opening is perfect, whatever the engine prefers', () {
+    // The Jobava: Stockfish likes 2.c4 better, but 2.Nc3 is the opening.
+    final book = OpeningBook.parse('eco\tname\tpgn\n'
+        'D01\tRapport-Jobava System\t1. d4 d5 2. Nc3 Nf6 3. Bf4\n');
+    final stats = measure(
+      kInitialFEN,
+      ['d4', 'd5', 'Nc3', 'Nf6', 'Bf4', 'e6', 'a3'],
+      {
+        2: line(['c2c4'], cp: 40),
+        3: line(['g8f6'], cp: 5), // after 2.Nc3: 0.35 worse than c4
+        6: line(['e2e3'], cp: 20),
+        7: line(['f8d6'], cp: -60), // 4.a3?! is a real mistake
+      },
+      book: book,
+    );
+    expect(stats.openingMoves, 4);
+    // d4, Nc3, Bf4 perfect; only a3 loses accuracy.
+    expect(stats.openingAccuracy, greaterThan(300));
+    expect(stats.openingAccuracy, lessThan(400));
   });
 
   group('a combination counts once', () {
@@ -207,12 +240,12 @@ void main() {
           playedAt: DateTime(2026, 1, i + 1),
           tacticChances: 1,
           tacticsFound: i == 0 ? 0 : 1,
-          theoryMoves: 6,
-          leftTheory: true,
+          openingMoves: 7,
+          openingAccuracy: 350,
         ),
     ]);
     expect(enough.scores[Skill.tactics]!.value, closeTo(66.7, 0.1));
-    expect(enough.scores[Skill.openings]!.value, 50); // 6 of 12 theory moves
+    expect(enough.scores[Skill.openings]!.value, 50); // 21 moves at 50% on average
     expect(enough.games, 3);
   });
 }

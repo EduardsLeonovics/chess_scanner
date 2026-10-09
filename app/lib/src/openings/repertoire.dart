@@ -63,10 +63,8 @@ class OpeningFamily {
   final String name;
   final List<RepertoireGame> games;
 
-  /// The family part of a full opening name: "Sicilian Defense: Najdorf
-  /// Variation" -> "Sicilian Defense"; "Rapport-Jobava System, with e6" ->
-  /// "Rapport-Jobava System".
-  static String familyOf(String name) => name.split(':').first.split(',').first.trim();
+  /// The family part of a full opening name (see [OpeningBook.familyOf]).
+  static String familyOf(String name) => OpeningBook.familyOf(name);
 
   /// The user's openings as [side], most played first.
   static List<OpeningFamily> group(

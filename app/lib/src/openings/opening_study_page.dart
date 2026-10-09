@@ -91,8 +91,13 @@ class _OpeningStudyPageState extends ConsumerState<OpeningStudyPage> {
   /// Your-move verdicts per position, computed once.
   final _judgements = <String, Future<_Judged>>{};
 
-  Future<_Judged> _judgementFor(Position pos) =>
-      _judgements[OpeningTree.keyOf(pos)] ??= _judge(ref, pos, _tree.at(pos), _side);
+  Future<_Judged> _judgementFor(Position pos) => _judgements[OpeningTree.keyOf(pos)] ??= _judge(
+        ref,
+        pos,
+        _tree.at(pos),
+        _side,
+        isOpeningMove: (after) => ref.read(openingBookProvider).value?.inFamily(widget.family.name, after) ?? false,
+      );
 
   Position get _pos => _history.last.$1;
   Side get _side => widget.side;
@@ -313,7 +318,17 @@ class _Judged {
   List<String> get recommendedLine => yourGoodMove?.line ?? bestLine;
 }
 
-Future<_Judged> _judge(WidgetRef ref, Position pos, TreeNode? node, Side side) async {
+/// [isOpeningMove] tells, from the position a move leads to, whether it's
+/// one of the opening's own moves (the Jobava's 2.Nc3): those are what's
+/// being studied, so they're never called weak, even where the engine
+/// prefers another move (2.c4).
+Future<_Judged> _judge(
+  WidgetRef ref,
+  Position pos,
+  TreeNode? node,
+  Side side, {
+  required bool Function(Position after) isOpeningMove,
+}) async {
   final analysis = ref.read(openingAnalysisProvider);
   final eval = await analysis.evaluate(pos.fen, OpeningAnalysis.lineDepth);
   final best = eval.best;
@@ -337,8 +352,9 @@ Future<_Judged> _judge(WidgetRef ref, Position pos, TreeNode? node, Side side) a
       reply = line.pv;
     }
     final loss = (bestScore - score).clamp(0, 100000);
-    // Never call the engine's own choice anything but good.
-    final isBest = _sameMove(pos, e.key, best.pv.first);
+    // Never call the engine's own choice, or the opening's own move,
+    // anything but good.
+    final isBest = _sameMove(pos, e.key, best.pv.first) || isOpeningMove(after);
     moves.add((
       uci: e.key,
       count: e.value,

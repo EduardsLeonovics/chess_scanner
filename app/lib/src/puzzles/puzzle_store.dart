@@ -138,10 +138,11 @@ class PuzzleLibraryNotifier extends Notifier<PuzzleLibrary> {
   /// counts transpositions back into the book. 4: time controls are kept,
   /// combinations count once, the end of the book isn't leaving theory, and
   /// blunders are measured in win chance. 5: games yield "avoid the
-  /// blunder" puzzles. Games analyzed under an older version are forgotten
+  /// blunder" puzzles. 6: the opening skill is opening accuracy (theory
+  /// moves perfect). Games analyzed under an older version are forgotten
   /// and re-analyzed. Puzzles and the opening games (just the moves played,
   /// which no analysis change affects) are kept.
-  static const dataVersion = 5;
+  static const dataVersion = 6;
 
   /// What's in storage, part by part (compared by identity), so a save only
   /// rewrites the parts that changed.

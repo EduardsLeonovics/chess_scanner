@@ -10,7 +10,7 @@ import 'opening_book.dart';
 
 enum Skill {
   tactics('Tactics', 'Spotting combinations that win material or mate 2–3 moves later.'),
-  openings('Openings', 'How long you follow opening theory before leaving it.'),
+  openings('Openings', 'How well you play the opening: theory moves count as perfect, the rest as Stockfish rates them.'),
   middlegame('Middlegame', 'Accuracy in quiet middlegame positions: improving pieces, keeping the initiative, not blundering.'),
   endgame('Endgame', 'Finding the win in endgames that are winning even though material is level.'),
   positional('Positional play', 'Keeping your pieces protected and coordinated, and accuracy in balanced positions.');
@@ -115,6 +115,8 @@ class GameSkillStats {
     this.theoryMoves = 0,
     this.leftTheory = false,
     this.theoryExhausted = false,
+    this.openingMoves = 0,
+    this.openingAccuracy = 0,
     this.middleMoves = 0,
     this.middleAccuracy = 0,
     this.middleBlunders = 0,
@@ -147,6 +149,12 @@ class GameSkillStats {
   /// The game followed a book line until the book had no further move.
   final bool theoryExhausted;
 
+  /// The user's moves in the opening phase, and the sum of their
+  /// accuracies (0..100): theory moves are perfect, the rest are rated by
+  /// the engine.
+  final int openingMoves;
+  final double openingAccuracy;
+
   final int middleMoves;
 
   /// Sum of per-move accuracies (0..100) over [middleMoves].
@@ -174,6 +182,8 @@ class GameSkillStats {
         'th': theoryMoves,
         'lt': leftTheory,
         'tx': theoryExhausted,
+        'om': openingMoves,
+        'oa': openingAccuracy,
         'mm': middleMoves,
         'ma': middleAccuracy,
         'mb': middleBlunders,
@@ -199,6 +209,8 @@ class GameSkillStats {
         theoryMoves: json['th'] as int,
         leftTheory: json['lt'] as bool,
         theoryExhausted: json['tx'] as bool? ?? false,
+        openingMoves: json['om'] as int? ?? 0,
+        openingAccuracy: (json['oa'] as num? ?? 0).toDouble(),
         middleMoves: json['mm'] as int,
         middleAccuracy: (json['ma'] as num).toDouble(),
         middleBlunders: json['mb'] as int,
@@ -286,6 +298,8 @@ GameSkillStats measureGame({
   int increment = 0,
 }) {
   var tacticChances = 0, tacticsFound = 0;
+  var openingMoves = 0;
+  var openingAccuracy = 0.0;
   var middleMoves = 0, middleBlunders = 0;
   var middleAccuracy = 0.0;
   var endChances = 0, endConverted = 0, endMoves = 0;
@@ -323,6 +337,13 @@ GameSkillStats measureGame({
     if (before.turn != side) continue;
     final continuing = inCombination;
     inCombination = false;
+    // A move into a named opening line is theory: perfect, whatever the
+    // engine would have preferred (2.Nc3 is the Jobava, not a worse 2.c4).
+    final theory = book != null && i < SkillRules.openingPlies && book.contains(positions[i + 1]);
+    if (theory) {
+      openingMoves++;
+      openingAccuracy += 100;
+    }
     final best = scan[i];
     final after = afterScore(i);
     if (best == null || after == null || best.pv.isEmpty) continue;
@@ -336,6 +357,10 @@ GameSkillStats measureGame({
     final endgame = pieces <= SkillRules.endgameMaxPieces;
     final opening = !endgame && i < SkillRules.openingPlies;
     final accuracy = moveAccuracy(b, after);
+    if (opening && !theory) {
+      openingMoves++;
+      openingAccuracy += accuracy;
+    }
 
     // Tactics: a forced mate, or a line whose material gain only shows up
     // a few moves in (not simply taking a loose piece).
@@ -394,6 +419,8 @@ GameSkillStats measureGame({
     theoryMoves: theoryMoves,
     leftTheory: leftTheory,
     theoryExhausted: theoryExhausted,
+    openingMoves: openingMoves,
+    openingAccuracy: openingAccuracy,
     middleMoves: middleMoves,
     middleAccuracy: middleAccuracy,
     middleBlunders: middleBlunders,
@@ -514,27 +541,22 @@ class SkillProfile {
       tc == 0 ? 'No tactical chances found yet' : 'Found $tf of $tc tactical chances',
     );
 
-    // Theory: games where the user left first are scored on how long they
-    // lasted; games the opponent left first only count if the user had
-    // already played a full opening. Following a line to the end of the
-    // book is full marks: the book is shallower than real theory.
-    final scored = [
-      for (final g in games)
-        if (g.leftTheory || g.theoryMoves >= SkillRules.fullTheoryMoves)
-          math.min(g.theoryMoves, SkillRules.fullTheoryMoves) / SkillRules.fullTheoryMoves
-        else if (g.theoryExhausted && g.theoryMoves >= SkillRules.exhaustedTheoryMoves)
-          1.0,
-    ];
+    // Openings: how accurately the opening phase is played. Theory moves
+    // count as perfect; how long the theory lasted is only shown (named
+    // lines are often short, so leaving them early isn't a mistake).
+    final om = sumInt((g) => g.openingMoves);
     final left = games.where((g) => g.leftTheory).toList();
     final avgTheory = left.isEmpty ? 0.0 : left.fold(0, (s, g) => s + g.theoryMoves) / left.length;
+    final openingValue = om >= minMoves ? sum((g) => g.openingAccuracy) / om : null;
     final openings = SkillScore(
       Skill.openings,
-      scored.length >= minTheoryGames ? 100 * scored.reduce((a, b) => a + b) / scored.length : null,
-      scored.isEmpty
-          ? 'No games where you left theory yet'
-          : left.isEmpty
-              ? 'You followed theory to the end in ${scored.length} game${scored.length == 1 ? '' : 's'}'
-              : 'You leave theory after ${avgTheory.toStringAsFixed(1)} moves on average',
+      openingValue,
+      om == 0
+          ? 'No opening moves analyzed yet'
+          : [
+              '$om opening moves${openingValue == null ? '' : ', ${openingValue.round()}% accurate'}',
+              if (left.isNotEmpty) 'you leave theory after ${avgTheory.toStringAsFixed(1)} moves on average',
+            ].join(' · '),
     );
 
     final mm = sumInt((g) => g.middleMoves), mb = sumInt((g) => g.middleBlunders);

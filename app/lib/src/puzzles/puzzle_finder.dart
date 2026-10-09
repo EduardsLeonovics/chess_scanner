@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:dartchess/dartchess.dart';
 
 import '../accounts/game_sources.dart';
@@ -137,7 +139,15 @@ Future<GameAnalysis> analyzeGame(
   // Pass 1: a quick look at every position (both sides to move), so each of
   // the user's moves has a score before and after.
   final scan = List<PvLine?>.filled(positions.length, null);
-  for (var i = skipPlies; i < positions.length; i++) {
+  // The first plies are theory and skipped, except the user's moves there
+  // that leave the book: the opening skill rates those too.
+  final theory = game.initialFen == kInitialFEN ? book : null;
+  final early = <int>{
+    if (theory != null)
+      for (var i = 0; i < math.min(skipPlies, moves.length); i++)
+        if (positions[i].turn == side && !theory.contains(positions[i + 1])) ...[i, i + 1],
+  };
+  for (final i in [...early.where((i) => i < skipPlies), for (var i = skipPlies; i < positions.length; i++) i]) {
     if (cancelled()) return const GameAnalysis([], null);
     if (positions[i].isGameOver) continue;
     final line = (await evaluate(positions[i].fen, nodes: PuzzleRules.scanNodes)).best;
@@ -228,7 +238,7 @@ Future<GameAnalysis> analyzeGame(
     scoreOf: scoreOf,
     afterScore: scoreAfter,
     mateFor: mateFor,
-    book: game.initialFen == kInitialFEN ? book : null,
+    book: theory,
     clocks: game.clocks,
     increment: game.increment,
   );
