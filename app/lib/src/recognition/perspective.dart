@@ -52,10 +52,21 @@ class _Line {
   final double strength;
 }
 
+/// A straightened board photo (see [rectifyBoard]).
+class RectifiedBoard {
+  const RectifiedBoard(this.image, this.inside);
+
+  final img.Image image;
+
+  /// Per pixel, 1 where it was taken from the photo and 0 where it lies
+  /// outside it (black in [image]): part of the board may be out of frame.
+  final Uint8List inside;
+}
+
 /// The photo with the board found in it straightened: square, upright, the
 /// board filling the middle of a [rectifiedSide]² image. Null if no board
 /// grid could be found.
-img.Image? rectifyBoard(img.Image image) {
+RectifiedBoard? rectifyBoard(img.Image image) {
   final scale = _workSide / math.max(image.width, image.height);
   final work = scale < 1
       ? img.copyResize(image,
@@ -536,10 +547,11 @@ _Homography? _orientedHomography(List<(double, double, _Pt)> corners) {
   return _Homography.fromCorners(c);
 }
 
-img.Image _warp(img.Image source, _Homography hom) {
+RectifiedBoard _warp(img.Image source, _Homography hom) {
   final bytes = rgbBytes(source);
   final sw = source.width, sh = source.height;
   final outBytes = Uint8List(rectifiedSide * rectifiedSide * 3);
+  final inside = Uint8List(rectifiedSide * rectifiedSide);
   const total = 1 + 2 * _margin;
   for (var y = 0; y < rectifiedSide; y++) {
     final by = y / rectifiedSide * total - _margin;
@@ -551,6 +563,7 @@ img.Image _warp(img.Image source, _Homography hom) {
         outBytes[o] = outBytes[o + 1] = outBytes[o + 2] = 0;
         continue;
       }
+      inside[y * rectifiedSide + x] = 1;
       // Bilinear.
       final x0 = p.x.floor(), y0 = p.y.floor();
       final fx = p.x - x0, fy = p.y - y0;
@@ -562,11 +575,14 @@ img.Image _warp(img.Image source, _Homography hom) {
       }
     }
   }
-  return img.Image.fromBytes(
-    width: rectifiedSide,
-    height: rectifiedSide,
-    bytes: outBytes.buffer,
-    numChannels: 3,
-    order: img.ChannelOrder.rgb,
+  return RectifiedBoard(
+    img.Image.fromBytes(
+      width: rectifiedSide,
+      height: rectifiedSide,
+      bytes: outBytes.buffer,
+      numChannels: 3,
+      order: img.ChannelOrder.rgb,
+    ),
+    inside,
   );
 }

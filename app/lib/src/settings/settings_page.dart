@@ -85,246 +85,248 @@ class SettingsPage extends ConsumerWidget {
               const SizedBox(height: 16),
               const AccountsSection(),
               const SizedBox(height: 32),
-              Text(
-                'Customization',
+              _Collapsible(
+                title: 'Customization',
                 style: light.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: _ink,
                 ),
-              ),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) => Center(
-                  child: StaticChessboard(
-                    size: math.min(constraints.maxWidth, 280),
-                    orientation: Side.white,
-                    fen: _previewFen,
-                    settings: StaticChessboardSettings(
-                      colorScheme: appearance.colorScheme,
-                      pieceAssets: assets,
-                      borderRadius: const BorderRadius.all(Radius.circular(8)),
-                      enableCoordinates: true,
+                children: [
+                  const SizedBox(height: 8),
+                  LayoutBuilder(
+                    builder: (context, constraints) => Center(
+                      child: StaticChessboard(
+                        size: math.min(constraints.maxWidth, 280),
+                        orientation: Side.white,
+                        fen: _previewFen,
+                        settings: StaticChessboardSettings(
+                          colorScheme: appearance.colorScheme,
+                          pieceAssets: assets,
+                          borderRadius: const BorderRadius.all(Radius.circular(8)),
+                          enableCoordinates: true,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              _Section(
-                icon: Icons.texture,
-                title: 'Board theme',
-                child: SizedBox(
-                  height: 92,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: boardThemes.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (context, i) {
-                      final theme = boardThemes[i];
-                      return _Choice(
-                        label: theme.label,
-                        selected: appearance.boardThemeId == theme.id,
-                        onTap: () => notifier.setBoardTheme(theme.id),
-                        child: StaticChessboard(
-                          size: 56,
-                          orientation: Side.white,
-                          fen: '8/8/8/8/8/8/8/8',
-                          settings: StaticChessboardSettings(
-                            colorScheme: theme.scheme,
-                            borderRadius: const BorderRadius.all(Radius.circular(6)),
+                  _Section(
+                    icon: Icons.texture,
+                    title: 'Board theme',
+                    child: SizedBox(
+                      height: 92,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: boardThemes.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 10),
+                        itemBuilder: (context, i) {
+                          final theme = boardThemes[i];
+                          return _Choice(
+                            label: theme.label,
+                            selected: appearance.boardThemeId == theme.id,
+                            onTap: () => notifier.setBoardTheme(theme.id),
+                            child: StaticChessboard(
+                              size: 56,
+                              orientation: Side.white,
+                              fen: '8/8/8/8/8/8/8/8',
+                              settings: StaticChessboardSettings(
+                                colorScheme: theme.scheme,
+                                borderRadius: const BorderRadius.all(Radius.circular(6)),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  _Section(
+                    icon: Icons.extension_outlined,
+                    title: 'Pieces',
+                    child: SizedBox(
+                      height: 92,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: pieceStyles.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 10),
+                        itemBuilder: (context, i) {
+                          final (set, label) = pieceStyles[i];
+                          return _Choice(
+                            label: label,
+                            selected: appearance.pieceSet == set,
+                            onTap: () => notifier.setPieceSet(set),
+                            child: SizedBox.square(
+                              dimension: 56,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image(image: set.assets[Piece.whiteKnight.kind]!, width: 28),
+                                  Image(image: set.assets[Piece.blackKing.kind]!, width: 28),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  _Section(
+                    icon: Icons.palette_outlined,
+                    title: 'Board color',
+                    child: Row(
+                      children: [
+                        _ColorButton(
+                          label: 'Light squares',
+                          color: appearance.colorScheme.lightSquare,
+                          onTap: () => pickColor(
+                            'Light squares',
+                            appearance.colorScheme.lightSquare,
+                            (c) => notifier.setBoardColors(light: c),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              _Section(
-                icon: Icons.extension_outlined,
-                title: 'Pieces',
-                child: SizedBox(
-                  height: 92,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: pieceStyles.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (context, i) {
-                      final (set, label) = pieceStyles[i];
-                      return _Choice(
-                        label: label,
-                        selected: appearance.pieceSet == set,
-                        onTap: () => notifier.setPieceSet(set),
-                        child: SizedBox.square(
-                          dimension: 56,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Image(image: set.assets[Piece.whiteKnight.kind]!, width: 28),
-                              Image(image: set.assets[Piece.blackKing.kind]!, width: 28),
-                            ],
+                        const SizedBox(width: 10),
+                        _ColorButton(
+                          label: 'Dark squares',
+                          color: appearance.colorScheme.darkSquare,
+                          onTap: () => pickColor(
+                            'Dark squares',
+                            appearance.colorScheme.darkSquare,
+                            (c) => notifier.setBoardColors(dark: c),
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
-                ),
-              ),
-              _Section(
-                icon: Icons.palette_outlined,
-                title: 'Board color',
-                child: Row(
-                  children: [
-                    _ColorButton(
-                      label: 'Light squares',
-                      color: appearance.colorScheme.lightSquare,
-                      onTap: () => pickColor(
-                        'Light squares',
-                        appearance.colorScheme.lightSquare,
-                        (c) => notifier.setBoardColors(light: c),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _ColorButton(
-                      label: 'Dark squares',
-                      color: appearance.colorScheme.darkSquare,
-                      onTap: () => pickColor(
-                        'Dark squares',
-                        appearance.colorScheme.darkSquare,
-                        (c) => notifier.setBoardColors(dark: c),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _Section(
-                icon: Icons.format_color_fill,
-                title: 'Piece color',
-                child: Row(
-                  children: [
-                    _ColorButton(
-                      label: 'White pieces',
-                      color: appearance.whitePieces,
-                      onTap: () => pickColor(
-                        'White pieces',
-                        appearance.whitePieces,
-                        (c) => notifier.setPieceColors(white: c),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _ColorButton(
-                      label: 'Black pieces',
-                      color: appearance.blackPieces,
-                      onTap: () => pickColor(
-                        'Black pieces',
-                        appearance.blackPieces,
-                        (c) => notifier.setPieceColors(black: c),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _Section(
-                icon: Icons.blur_circular,
-                title: 'Piece outline',
-                child: Row(
-                  children: [
-                    _ColorButton(
-                      label: 'White pieces',
-                      color: appearance.effectiveWhiteOutline,
-                      onTap: () => pickColor(
-                        'White piece outline',
-                        appearance.effectiveWhiteOutline ?? const Color(0xFF000000),
-                        notifier.setWhiteOutline,
-                      ),
-                      onClear: appearance.effectiveWhiteOutline == null
-                          ? null
-                          : () => notifier.setWhiteOutline(Appearance.noOutline),
-                    ),
-                    const SizedBox(width: 10),
-                    _ColorButton(
-                      label: 'Black pieces',
-                      color: appearance.effectiveBlackOutline,
-                      onTap: () => pickColor(
-                        'Black piece outline',
-                        appearance.effectiveBlackOutline ?? const Color(0xFFFFFFFF),
-                        notifier.setBlackOutline,
-                      ),
-                      onClear: appearance.effectiveBlackOutline == null
-                          ? null
-                          : () => notifier.setBlackOutline(Appearance.noOutline),
-                    ),
-                  ],
-                ),
-              ),
-              _Section(
-                icon: Icons.wallpaper_outlined,
-                title: 'App background',
-                child: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    for (final color in Appearance.backgroundPresets)
-                      _Swatch(
-                        color: color,
-                        selected: appearance.background == color,
-                        onTap: () => notifier.setBackground(color),
-                      ),
-                    OutlinedButton.icon(
-                      onPressed: () => pickColor('App background', appearance.background, notifier.setBackground),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: Appearance.backgroundPresets.contains(appearance.background) ? _line : _ink,
-                          width: Appearance.backgroundPresets.contains(appearance.background) ? 1 : 2,
+                  _Section(
+                    icon: Icons.format_color_fill,
+                    title: 'Piece color',
+                    child: Row(
+                      children: [
+                        _ColorButton(
+                          label: 'White pieces',
+                          color: appearance.whitePieces,
+                          onTap: () => pickColor(
+                            'White pieces',
+                            appearance.whitePieces,
+                            (c) => notifier.setPieceColors(white: c),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      icon: const Icon(Icons.colorize, size: 18, color: _ink),
-                      label: const Text('Custom', style: TextStyle(color: _ink)),
+                        const SizedBox(width: 10),
+                        _ColorButton(
+                          label: 'Black pieces',
+                          color: appearance.blackPieces,
+                          onTap: () => pickColor(
+                            'Black pieces',
+                            appearance.blackPieces,
+                            (c) => notifier.setPieceColors(black: c),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              _Section(
-                icon: Icons.volume_up_outlined,
-                title: 'Sound',
-                child: SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Move sounds', style: TextStyle(color: _ink)),
-                  subtitle: const Text('Moves, captures, castling and checks'),
-                  value: appearance.moveSounds,
-                  onChanged: notifier.setMoveSounds,
-                ),
-              ),
-              _Section(
-                icon: Icons.north_east,
-                title: 'Analysis board',
-                child: Column(
-                  children: [
-                    CheckboxListTile(
+                  ),
+                  _Section(
+                    icon: Icons.blur_circular,
+                    title: 'Piece outline',
+                    child: Row(
+                      children: [
+                        _ColorButton(
+                          label: 'White pieces',
+                          color: appearance.effectiveWhiteOutline,
+                          onTap: () => pickColor(
+                            'White piece outline',
+                            appearance.effectiveWhiteOutline ?? const Color(0xFF000000),
+                            notifier.setWhiteOutline,
+                          ),
+                          onClear: appearance.effectiveWhiteOutline == null
+                              ? null
+                              : () => notifier.setWhiteOutline(Appearance.noOutline),
+                        ),
+                        const SizedBox(width: 10),
+                        _ColorButton(
+                          label: 'Black pieces',
+                          color: appearance.effectiveBlackOutline,
+                          onTap: () => pickColor(
+                            'Black piece outline',
+                            appearance.effectiveBlackOutline ?? const Color(0xFFFFFFFF),
+                            notifier.setBlackOutline,
+                          ),
+                          onClear: appearance.effectiveBlackOutline == null
+                              ? null
+                              : () => notifier.setBlackOutline(Appearance.noOutline),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _Section(
+                    icon: Icons.wallpaper_outlined,
+                    title: 'App background',
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        for (final color in Appearance.backgroundPresets)
+                          _Swatch(
+                            color: color,
+                            selected: appearance.background == color,
+                            onTap: () => notifier.setBackground(color),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: () => pickColor('App background', appearance.background, notifier.setBackground),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: Appearance.backgroundPresets.contains(appearance.background) ? _line : _ink,
+                              width: Appearance.backgroundPresets.contains(appearance.background) ? 1 : 2,
+                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: const Icon(Icons.colorize, size: 18, color: _ink),
+                          label: const Text('Custom', style: TextStyle(color: _ink)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _Section(
+                    icon: Icons.volume_up_outlined,
+                    title: 'Sound',
+                    child: SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Show best move arrow', style: TextStyle(color: _ink)),
-                      subtitle: const Text('The green arrow for Stockfish\'s top move'),
-                      value: appearance.showBestMoveArrow,
-                      onChanged: (on) => notifier.setShowBestMoveArrow(on ?? true),
+                      title: const Text('Move sounds', style: TextStyle(color: _ink)),
+                      subtitle: const Text('Moves, captures, castling and checks'),
+                      value: appearance.moveSounds,
+                      onChanged: notifier.setMoveSounds,
                     ),
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Show evaluation bar', style: TextStyle(color: _ink)),
-                      subtitle: const Text(
-                        'The bar above the moves showing who is better (also hidden with its eye icon)',
-                      ),
-                      value: appearance.showEvalBar,
-                      onChanged: (on) => notifier.setShowEvalBar(on ?? true),
+                  ),
+                  _Section(
+                    icon: Icons.north_east,
+                    title: 'Analysis board',
+                    child: Column(
+                      children: [
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Show best move arrow', style: TextStyle(color: _ink)),
+                          subtitle: const Text('The green arrow for Stockfish\'s top move'),
+                          value: appearance.showBestMoveArrow,
+                          onChanged: (on) => notifier.setShowBestMoveArrow(on ?? true),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Show evaluation bar', style: TextStyle(color: _ink)),
+                          subtitle: const Text(
+                            'The bar above the moves showing who is better (also hidden with its eye icon)',
+                          ),
+                          value: appearance.showEvalBar,
+                          onChanged: (on) => notifier.setShowEvalBar(on ?? true),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: TextButton.icon(
-                  onPressed: appearance == const Appearance() ? null : notifier.reset,
-                  icon: const Icon(Icons.restart_alt),
-                  label: const Text('Reset customization to defaults'),
-                ),
+                  ),
+                  const SizedBox(height: 20),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: appearance == const Appearance() ? null : notifier.reset,
+                      icon: const Icon(Icons.restart_alt),
+                      label: const Text('Reset customization to defaults'),
+                    ),
+                  ),
+                ],
               ),
               const SettingsHeading('Community'),
               const CommunitySafetySection(),
@@ -340,6 +342,57 @@ class SettingsPage extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A heading with a ">" that opens and closes what's under it; closed at
+/// first, so the long customization list doesn't crowd the settings.
+class _Collapsible extends StatefulWidget {
+  const _Collapsible({required this.title, required this.style, required this.children});
+
+  final String title;
+  final TextStyle? style;
+  final List<Widget> children;
+
+  @override
+  State<_Collapsible> createState() => _CollapsibleState();
+}
+
+class _CollapsibleState extends State<_Collapsible> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _open = !_open),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(child: Text(widget.title, style: widget.style)),
+                AnimatedRotation(
+                  turns: _open ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: const Icon(Icons.chevron_right, color: _ink, size: 28),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: _open
+              ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: widget.children)
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
     );
   }
 }

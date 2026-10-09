@@ -93,7 +93,7 @@ RecognizedBoard recognizeScreenshot(
     // Not a straight-on screenshot: maybe a photo of a board at an angle.
     final straightened = rectifyBoard(image);
     if (straightened != null) {
-      pixels = _Pixels.fromImage(straightened);
+      pixels = _Pixels.fromImage(straightened.image, inside: straightened.inside);
       grid = _findGrid(pixels);
     }
   }
@@ -108,29 +108,182 @@ RecognizedBoard recognizeScreenshot(
       if (reading != null) squares.add(reading);
     }
   }
-  return _assemble(squares);
+  _dropSmallMarks(squares);
+  return _assemble(squares, _labelledBlackAtBottom(pixels, grid, squares));
+}
+
+/// Removes marks much smaller than the pieces around them: in every piece
+/// set even a pawn is well over half as tall as a typical piece, so these
+/// are icons drawn over the board (e.g. an image search's lens button).
+void _dropSmallMarks(List<_SquareReading> readings) {
+  if (readings.length < 3) return;
+  final heights = [for (final s in readings) s.relHeight]..sort();
+  final median = heights[heights.length ~/ 2];
+  readings.removeWhere((s) => s.relHeight < median * 0.55);
+}
+
+/// Which way up the board is, from rank numbers drawn in the corners of the
+/// edge squares (most sites do this), or null if there are none or they
+/// can't be read. Only the ends of a label column are read: "8" (wide, two
+/// holes) and "1" (narrow, no holes) are easy to tell apart, and both must
+/// be recognised, the right way round, for the labels to decide.
+bool? _labelledBlackAtBottom(_Pixels p, _Grid g, List<_SquareReading> pieces) {
+  final occupied = {for (final s in pieces) (s.col, s.row)};
+  final verdicts = <bool>{};
+  for (final col in const [0, 7]) {
+    if (occupied.contains((col, 0)) || occupied.contains((col, 7))) continue;
+    for (final (right, bottom) in const [(false, false), (true, false), (false, true), (true, true)]) {
+      final top = _cornerDigit(p, g, col, 0, right: right, bottom: bottom);
+      final low = _cornerDigit(p, g, col, 7, right: right, bottom: bottom);
+      if (top == 8 && low == 1) verdicts.add(false);
+      if (top == 1 && low == 8) verdicts.add(true);
+    }
+  }
+  return verdicts.length == 1 ? verdicts.first : null;
+}
+
+/// 8 or 1 if a corner of square ([c], [r]) holds a mark shaped like that
+/// digit, else null.
+int? _cornerDigit(_Pixels p, _Grid g, int c, int r, {required bool right, required bool bottom}) {
+  final zoneW = (g.stepX * 0.3).round(), zoneH = (g.stepY * 0.3).round();
+  final edgeX = math.max(1, (g.stepX * 0.02).round());
+  final edgeY = math.max(1, (g.stepY * 0.02).round());
+  final x0 = right
+      ? (g.x0 + (c + 1) * g.stepX).round() - edgeX - zoneW
+      : (g.x0 + c * g.stepX).round() + edgeX;
+  final y0 = bottom
+      ? (g.y0 + (r + 1) * g.stepY).round() - edgeY - zoneH
+      : (g.y0 + r * g.stepY).round() + edgeY;
+  if (x0 < 0 || y0 < 0 || x0 + zoneW > p.width || y0 + zoneH > p.height) return null;
+  final bg = _background(p, g, c, r);
+  final threshold = math.max(60, 2 * bg.noise);
+  final ink = Uint8List(zoneW * zoneH);
+  for (var y = 0; y < zoneH; y++) {
+    for (var x = 0; x < zoneW; x++) {
+      final i = ((y0 + y) * p.width + x0 + x) * 3;
+      if (bg.distanceTo(p.rgb[i], p.rgb[i + 1], p.rgb[i + 2]) > threshold) ink[y * zoneW + x] = 1;
+    }
+  }
+  final glyph = _largestComponent(ink, zoneW, zoneH);
+  if (glyph == null) return null;
+  final (cells, left, top, w, h) = glyph;
+  // A label is a small mark clear of the zone's edges.
+  if (h < zoneH * 0.25 || h > zoneH * 0.9 || h < 6 || w > h) return null;
+  final holes = _holes(cells, w, h);
+  final aspect = w / h;
+  if (holes == 0 && aspect < 0.6) return 1;
+  if (holes == 2 && aspect >= 0.45) return 8;
+  return null;
+}
+
+/// The largest 8-connected component of [mask] as its own mask cropped to
+/// its bounding box: (cells, left, top, width, height).
+(Uint8List, int, int, int, int)? _largestComponent(Uint8List mask, int w, int h) {
+  final labels = Int32List(w * h);
+  var bestLabel = 0, bestSize = 0, label = 0;
+  final stack = <int>[];
+  for (var start = 0; start < w * h; start++) {
+    if (mask[start] == 0 || labels[start] != 0) continue;
+    label++;
+    var size = 0;
+    labels[start] = label;
+    stack.add(start);
+    while (stack.isNotEmpty) {
+      final i = stack.removeLast();
+      size++;
+      final x = i % w, y = i ~/ w;
+      for (var dy = -1; dy <= 1; dy++) {
+        for (var dx = -1; dx <= 1; dx++) {
+          final nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          final n = ny * w + nx;
+          if (mask[n] == 1 && labels[n] == 0) {
+            labels[n] = label;
+            stack.add(n);
+          }
+        }
+      }
+    }
+    if (size > bestSize) {
+      bestSize = size;
+      bestLabel = label;
+    }
+  }
+  if (bestLabel == 0) return null;
+  var left = w, top = h, right = -1, bottom = -1;
+  for (var i = 0; i < w * h; i++) {
+    if (labels[i] != bestLabel) continue;
+    final x = i % w, y = i ~/ w;
+    left = math.min(left, x);
+    right = math.max(right, x);
+    top = math.min(top, y);
+    bottom = math.max(bottom, y);
+  }
+  final cw = right - left + 1, ch = bottom - top + 1;
+  final cells = Uint8List(cw * ch);
+  for (var y = 0; y < ch; y++) {
+    for (var x = 0; x < cw; x++) {
+      if (labels[(top + y) * w + left + x] == bestLabel) cells[y * cw + x] = 1;
+    }
+  }
+  return (cells, left, top, cw, ch);
+}
+
+/// How many enclosed holes a shape has: background regions (4-connected)
+/// that don't reach the edge of its bounding box.
+int _holes(Uint8List cells, int w, int h) {
+  final seen = Uint8List(w * h);
+  var holes = 0;
+  final stack = <int>[];
+  for (var start = 0; start < w * h; start++) {
+    if (cells[start] == 1 || seen[start] == 1) continue;
+    var touchesEdge = false;
+    seen[start] = 1;
+    stack.add(start);
+    while (stack.isNotEmpty) {
+      final i = stack.removeLast();
+      final x = i % w, y = i ~/ w;
+      if (x == 0 || y == 0 || x == w - 1 || y == h - 1) touchesEdge = true;
+      for (final (nx, ny) in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        final n = ny * w + nx;
+        if (cells[n] == 0 && seen[n] == 0) {
+          seen[n] = 1;
+          stack.add(n);
+        }
+      }
+    }
+    if (!touchesEdge) holes++;
+  }
+  return holes;
 }
 
 // ---------------------------------------------------------------------------
 // Pixels
 
 class _Pixels {
-  _Pixels(this.width, this.height, this.rgb, this.lum);
+  _Pixels(this.width, this.height, this.rgb, this.lum, this.inside);
 
-  factory _Pixels.fromImage(img.Image image) {
+  factory _Pixels.fromImage(img.Image image, {Uint8List? inside}) {
     final rgb = rgbBytes(image);
     final n = image.width * image.height;
     final lum = Uint8List(n);
     for (var i = 0; i < n; i++) {
       lum[i] = (rgb[i * 3] * 299 + rgb[i * 3 + 1] * 587 + rgb[i * 3 + 2] * 114) ~/ 1000;
     }
-    return _Pixels(image.width, image.height, rgb, lum);
+    return _Pixels(image.width, image.height, rgb, lum, inside);
   }
 
   final int width;
   final int height;
   final Uint8List rgb;
   final Uint8List lum;
+
+  /// For a straightened photo, 1 per pixel the photo showed (see
+  /// [RectifiedBoard.inside]); null when every pixel is real.
+  final Uint8List? inside;
+
+  bool seen(int index) => inside == null || inside![index] == 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -426,7 +579,7 @@ _Background _background(_Pixels p, _Grid g, int c, int r, {bool withNoise = true
     final y0 = math.max(py, 0), y1 = math.min(py + patchY, p.height);
     for (var y = y0; y < y1; y++) {
       for (var x = x0; x < x1; x++) {
-        visit((y * p.width + x) * 3);
+        if (p.seen(y * p.width + x)) visit((y * p.width + x) * 3);
       }
     }
   }
@@ -475,14 +628,15 @@ int _kth(Int32List histogram, int offset, int size, int k) {
 }
 
 class _SquareReading {
-  _SquareReading(this.col, this.row, this.brightness, this.ranked, this.shape);
+  _SquareReading(this.col, this.row, this.brightness, this.ranked, this.shape, this.relHeight);
 
   /// Column and row in the image, (0, 0) = top left.
   final int col;
   final int row;
 
-  /// Share of the piece's pixels that are bright; used to tell White from
-  /// Black relative to the other pieces in the same image.
+  /// Share of the piece's pixels that are bright, minus the share that are
+  /// dark (-1 to 1); used to tell White from Black relative to the other
+  /// pieces in the same image.
   final double brightness;
 
   /// Candidate roles, best first.
@@ -490,6 +644,9 @@ class _SquareReading {
 
   /// The piece's normalized silhouette.
   final Uint8List shape;
+
+  /// The piece's height relative to its square.
+  final double relHeight;
 
   Side color = Side.white;
 }
@@ -509,6 +666,16 @@ _SquareReading? _readSquare(
   final bottom = math.min(p.height, (g.y0 + (r + 1) * g.stepY).round() - insetY);
   final w = right - left, h = bottom - top;
   if (w < 6 || h < 6) return null;
+  if (p.inside != null) {
+    var seen = 0;
+    for (var y = top; y < bottom; y++) {
+      for (var x = left; x < right; x++) {
+        seen += p.inside![y * p.width + x];
+      }
+    }
+    // Mostly out of the photo: what little shows can't be read as a piece.
+    if (seen < w * h * 0.7) return null;
+  }
 
   final bg = _background(p, g, c, r);
   // Textured squares (wood, marble) need a higher bar, or their grain
@@ -518,6 +685,7 @@ _SquareReading? _readSquare(
   final core = Uint8List(w * h);
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
+      if (!p.seen((top + y) * p.width + left + x)) continue;
       final i = ((top + y) * p.width + left + x) * 3;
       final red = p.rgb[i], green = p.rgb[i + 1], blue = p.rgb[i + 2];
       final dist = bg.distanceTo(red, green, blue);
@@ -525,7 +693,7 @@ _SquareReading? _readSquare(
       // are arrows or highlights drawn over the board.
       final saturation = math.max(red, math.max(green, blue)) -
           math.min(red, math.min(green, blue));
-      if (dist > threshold && saturation <= 60) {
+      if (dist > threshold && saturation <= 45) {
         mask[y * w + x] = 1;
         final lum = p.lum[(top + y) * p.width + left + x];
         if (saturation <= 40 && (lum <= 70 || lum >= 200)) core[y * w + x] = 1;
@@ -541,12 +709,19 @@ _SquareReading? _readSquare(
   // Judge brightness away from the outline, which is dark on white pieces
   // too; measured over all lichess sets this separates the colours best.
   final interior = blob.eroded(math.max(1, (w * 0.04).round()));
-  var bright = 0, counted = 0;
+  // Bright minus dark share: black pieces with white detailing (lichess's
+  // black rook and king) still come out clearly darker than white ones.
+  var bright = 0, dark = 0, counted = 0;
   for (var y = blob.top; y <= blob.bottom; y++) {
     for (var x = blob.left; x <= blob.right; x++) {
       if (interior[y * w + x] == 0) continue;
       counted++;
-      if (p.lum[(top + y) * p.width + left + x] >= 160) bright++;
+      final lum = p.lum[(top + y) * p.width + left + x];
+      if (lum >= 160) {
+        bright++;
+      } else if (lum <= 100) {
+        dark++;
+      }
     }
   }
 
@@ -565,7 +740,7 @@ _SquareReading? _readSquare(
   // Real pieces of ordinary sets match at 0.72 or better; weaker matches
   // are overlays drawn on the board (share buttons, lens icons, arrows).
   if (ranked.first.$2 < 0.65) return null;
-  return _SquareReading(c, r, counted == 0 ? 0 : bright / counted, ranked, shape);
+  return _SquareReading(c, r, counted == 0 ? 0 : (bright - dark) / counted, ranked, shape, relHeight);
 }
 
 /// Where two roles match a piece about equally well against the templates,
@@ -608,8 +783,19 @@ const _peerIou = 0.88;
 /// set. Heavily detailed white pieces (e.g. merida's queen) can still be
 /// darker than plain black ones, so where a piece type clearly shows both
 /// colours it is split on its own; the rest use the split of all pieces.
+///
+/// With few pieces one very dark or bright piece can look like a group of
+/// its own, so the split of all pieces must fall between the two kings
+/// when there are two.
 void _assignColors(List<_SquareReading> readings) {
-  final overall = _splitPoint([for (final s in readings) s.brightness]) ?? 0.3;
+  final values = [for (final s in readings) s.brightness];
+  final kings = [
+    for (final s in readings)
+      if (s.ranked.first.$1 == Role.king) s.brightness,
+  ]..sort();
+  final overall = (kings.length == 2 ? _splitPoint(values, between: (kings[0], kings[1])) : null) ??
+      _splitPoint(values) ??
+      0.0;
   for (final s in readings) {
     s.color = s.brightness > overall ? Side.white : Side.black;
   }
@@ -624,13 +810,16 @@ void _assignColors(List<_SquareReading> readings) {
 }
 
 /// Otsu's threshold between a dark and a bright group, or null if the
-/// values don't form two clearly separate groups.
-double? _splitPoint(List<double> values) {
+/// values don't form two clearly separate groups. With [between], only
+/// thresholds inside that range count.
+double? _splitPoint(List<double> values, {(double, double)? between}) {
   values = [...values]..sort();
   double? threshold;
   var bestSeparation = 0.0;
   var bestGap = 0.0;
   for (var i = 1; i < values.length; i++) {
+    final candidate = (values[i - 1] + values[i]) / 2;
+    if (between != null && (candidate <= between.$1 || candidate >= between.$2)) continue;
     final dark = values.sublist(0, i), light = values.sublist(i);
     final darkMean = dark.reduce((a, b) => a + b) / dark.length;
     final lightMean = light.reduce((a, b) => a + b) / light.length;
@@ -639,7 +828,7 @@ double? _splitPoint(List<double> values) {
     if (separation > bestSeparation) {
       bestSeparation = separation;
       bestGap = gap;
-      threshold = (values[i - 1] + values[i]) / 2;
+      threshold = candidate;
     }
   }
   return bestGap >= 0.15 ? threshold : null;
@@ -881,9 +1070,149 @@ class _Blob {
 // ---------------------------------------------------------------------------
 // Board assembly
 
-RecognizedBoard _assemble(List<_SquareReading> readings) {
+/// How far the roles read (per [roleOf]) are from a position a game can
+/// reach (0 when plausible, else roughly one per problem), and how many
+/// pieces are beyond a side's starting set (a second queen, a third
+/// bishop...): possible, but rare. Each side needs one king, at most 8
+/// pawns (never on the first or last rank) and no more extra queens,
+/// rooks, bishops and knights than it has promoted pawns.
+(int, int) _materialProblems(List<_SquareReading> readings, Role Function(_SquareReading) roleOf) {
+  var bad = 0, unusual = 0;
+  for (final side in Side.values) {
+    final count = {for (final role in Role.values) role: 0};
+    for (final s in readings) {
+      if (s.color == side) count[roleOf(s)] = count[roleOf(s)]! + 1;
+    }
+    bad += (count[Role.king]! - 1).abs();
+    final pawns = count[Role.pawn]!;
+    bad += math.max(0, pawns - 8);
+    final extra = math.max<int>(0, count[Role.queen]! - 1) +
+        math.max<int>(0, count[Role.rook]! - 2) +
+        math.max<int>(0, count[Role.bishop]! - 2) +
+        math.max<int>(0, count[Role.knight]! - 2);
+    bad += math.max(0, extra - math.max(0, 8 - pawns));
+    unusual += extra;
+  }
+  for (final s in readings) {
+    if (roleOf(s) == Role.pawn && (s.row == 0 || s.row == 7)) bad++;
+  }
+  return (bad, unusual);
+}
+
+/// When the best role of each piece on its own adds up to an impossible
+/// position (13 bishops and no king, say, from a piece set unlike any
+/// template), rethinks the roles of whole groups of identical-looking
+/// pieces: in one image every pawn has the same silhouette, so they get
+/// the same role. Picks the roles that make the position possible while
+/// matching the shapes as well as it can. Returns whether anything changed.
+bool _makePlausible(List<_SquareReading> readings) {
+  final (bad, unusual) = _materialProblems(readings, (s) => s.ranked.first.$1);
+  if (bad == 0 && unusual < 3) return false;
+  final groups = <List<_SquareReading>>[];
+  for (final s in readings) {
+    final group = groups.where((g) => _iou(g.first.shape, s.shape) >= _peerIou).firstOrNull;
+    if (group == null) {
+      groups.add([s]);
+    } else {
+      group.add(s);
+    }
+  }
+  double scoreOf(_SquareReading s, Role role) =>
+      s.ranked.firstWhere((e) => e.$1 == role, orElse: () => (role, 0.0)).$2;
+  final roleOf = <_SquareReading, Role>{for (final s in readings) s: s.ranked.first.$1};
+  final groupRole = [for (final g in groups) roleOf[g.first]!];
+  final meanHeight = [
+    for (final g in groups) g.map((s) => s.relHeight).reduce((a, b) => a + b) / g.length,
+  ];
+  void apply() {
+    for (var i = 0; i < groups.length; i++) {
+      for (final s in groups[i]) {
+        roleOf[s] = groupRole[i];
+      }
+    }
+  }
+
+  // Being possible matters far more than a closer shape match, and usual
+  // material more than a slightly closer one.
+  double objective() {
+    var total = 0.0;
+    for (final s in readings) {
+      total += scoreOf(s, roleOf[s]!);
+    }
+    final (bad, unusual) = _materialProblems(readings, (s) => roleOf[s]!);
+    // In every set the king is at least as tall as the queen: that settles
+    // a near-tie between a king-like and a queen-like group.
+    var shorterKing = 0.0;
+    for (var i = 0; i < groups.length; i++) {
+      if (groupRole[i] != Role.king) continue;
+      for (var j = 0; j < groups.length; j++) {
+        if (groupRole[j] == Role.queen && meanHeight[j] > meanHeight[i] + 0.005) shorterKing += 0.2;
+      }
+    }
+    return total - 10 * bad - unusual - shorterKing;
+  }
+
+  apply();
+  var current = objective();
+  // Hill climbing: change one group's role, or swap two groups' roles,
+  // while that helps.
+  for (var round = 0; round < 50; round++) {
+    var bestValue = current;
+    void Function()? bestMove;
+    for (var i = 0; i < groups.length; i++) {
+      final was = groupRole[i];
+      for (final role in Role.values) {
+        if (role == was) continue;
+        groupRole[i] = role;
+        apply();
+        final value = objective();
+        if (value > bestValue + 1e-9) {
+          bestValue = value;
+          bestMove = () => groupRole[i] = role;
+        }
+      }
+      groupRole[i] = was;
+      for (var j = i + 1; j < groups.length; j++) {
+        final other = groupRole[j];
+        if (other == was) continue;
+        groupRole[i] = other;
+        groupRole[j] = was;
+        apply();
+        final value = objective();
+        if (value > bestValue + 1e-9) {
+          bestValue = value;
+          bestMove = () {
+            groupRole[i] = other;
+            groupRole[j] = was;
+          };
+        }
+        groupRole[i] = was;
+        groupRole[j] = other;
+      }
+    }
+    if (bestMove == null) break;
+    bestMove();
+    current = bestValue;
+  }
+  apply();
+  var changed = false;
+  for (final s in readings) {
+    final role = roleOf[s]!;
+    if (s.ranked.first.$1 == role) continue;
+    changed = true;
+    s.ranked = [
+      (role, scoreOf(s, role)),
+      for (final e in s.ranked)
+        if (e.$1 != role) e,
+    ];
+  }
+  return changed;
+}
+
+RecognizedBoard _assemble(List<_SquareReading> readings, bool? labelledBlackAtBottom) {
   _settleCloseCalls(readings);
   _assignColors(readings);
+  if (_makePlausible(readings)) _assignColors(readings);
 
   // Decide which side is at the bottom: kings if we have both, otherwise
   // where each side's pieces sit on average.
@@ -898,9 +1227,8 @@ RecognizedBoard _assemble(List<_SquareReading> readings) {
   }
 
   final wk = king(Side.white), bk = king(Side.black);
-  final blackAtBottom = wk != null && bk != null
-      ? wk.row < bk.row
-      : meanRow(Side.white) < meanRow(Side.black);
+  final blackAtBottom = labelledBlackAtBottom ??
+      (wk != null && bk != null ? wk.row < bk.row : meanRow(Side.white) < meanRow(Side.black));
 
   Square squareOf(_SquareReading s) => blackAtBottom
       ? Square.fromCoords(File(7 - s.col), Rank(s.row))

@@ -151,6 +151,10 @@ void main() {
     final settingsList = find
         .descendant(of: find.byType(SettingsPage), matching: find.byType(Scrollable))
         .first;
+    // Customization starts closed; its ">" opens it.
+    expect(find.text('Board theme'), findsNothing);
+    await tester.tap(find.text('Customization'));
+    await tester.pumpAndSettle();
     for (final title in ['Board theme', 'Pieces', 'Board color', 'Piece color']) {
       await tester.scrollUntilVisible(find.text(title), 100, scrollable: settingsList);
       expect(find.text(title), findsOneWidget);
