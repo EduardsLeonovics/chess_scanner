@@ -284,6 +284,19 @@ class SettingsPage extends ConsumerWidget {
                     ),
                   ),
                   _Section(
+                    icon: Icons.speed,
+                    title: 'Piece animation',
+                    child: SegmentedButton<PieceAnimation>(
+                      showSelectedIcon: false,
+                      segments: [
+                        for (final speed in PieceAnimation.values)
+                          ButtonSegment(value: speed, label: Text(speed.label)),
+                      ],
+                      selected: {appearance.animation},
+                      onSelectionChanged: (picked) => notifier.setAnimation(picked.first),
+                    ),
+                  ),
+                  _Section(
                     icon: Icons.volume_up_outlined,
                     title: 'Sound',
                     child: SwitchListTile(

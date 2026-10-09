@@ -184,6 +184,7 @@ class _OpeningStudyPageState extends ConsumerState<OpeningStudyPage> {
                   settings: ChessboardSettings(
                     colorScheme: appearance.colorScheme,
                     pieceAssets: pieceAssets,
+                    animationDuration: appearance.animation.duration,
                   ),
                   node: node,
                   judged: judged,

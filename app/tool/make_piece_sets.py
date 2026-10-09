@@ -1,9 +1,13 @@
-"""Draws ChessHive's own piece sets (Geo, Ink, Bubble) for chessground.
+"""Draws ChessHive's own piece sets for chessground: Geo, Ink, Bubble,
+Wood, Glass, Bold and Eightbit.
 
-Every piece is built from simple shapes in a unit square (x right, y down),
-rendered at 1024 px with an outline, then saved as WebP at chessground's
-sizes (128 px base plus 2.0x, 3.0x and 4.0x). These sets are original work
-released with the app under the GPL, so they're safe in an ad-supported app.
+Every piece is built from simple shapes in a unit square (x right, y down):
+smooth turned profiles (a Staunton body is the same curve mirrored), a
+spline for the knight's head, plus circles and rounded rectangles. Each is
+rendered at 1024 px in its style (flat with an outline, shaded, wood,
+glass or pixel art) and saved as WebP at chessground's sizes (128 px base
+plus 2.0x, 3.0x and 4.0x). The sets are original work released with the
+app under the GPL, so they're safe in an ad-supported app.
 
 Run from app/: python tool/make_piece_sets.py
 Writes third_party/chessground/assets/piece_sets/<set>/ and, with
@@ -70,6 +74,42 @@ def mitre(top_y, bottom_y, half, cx=0.5, steps=16):
     return poly(*right, *reversed(left))
 
 
+def _catmull(points, closed=False, steps=10):
+    """Points on a Catmull-Rom spline through [points]."""
+    n = len(points)
+    out = []
+    segments = n if closed else n - 1
+    for i in range(segments):
+        p0 = points[(i - 1) % n] if closed else points[max(i - 1, 0)]
+        p1 = points[i % n]
+        p2 = points[(i + 1) % n]
+        p3 = points[(i + 2) % n] if closed else points[min(i + 2, n - 1)]
+        for s in range(steps):
+            t = s / steps
+            t2, t3 = t * t, t * t * t
+            out.append(tuple(
+                0.5 * (2 * p1[k] + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2
+                       + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)
+                for k in range(2)))
+    if not closed:
+        out.append(points[-1])
+    return out
+
+
+def lathe(profile, cx=0.5):
+    """A turned body: [profile] is (y, half width) from top to bottom,
+    joined by a smooth curve and mirrored around the centre line."""
+    curve = _catmull([(w, y) for y, w in profile])
+    right = [(cx + w, y) for w, y in curve]
+    left = [(cx - w, y) for w, y in reversed(curve)]
+    return poly(*right, *left)
+
+
+def spline(*pts):
+    """A smooth closed outline through [pts]."""
+    return poly(*_catmull(list(pts), closed=True))
+
+
 def px(v):
     return v * S
 
@@ -132,86 +172,316 @@ def geo(role):
 
 
 # ---------------------------------------------------------------------------
-# Ink: slender classical shapes, two-tier base, banded details.
+# Staunton: the classic shapes shared by Ink, Bubble, Wood and Glass, drawn
+# as smooth turned profiles. [fat] widens everything (Bubble is chunkier).
+
+def staunton(role, fat=1.0):
+    def w(v):
+        return v * fat
+
+    def base(top):
+        # A stepped foot: a wide plinth with a smaller ring on it.
+        return [rrect(0.5 - w(0.27), 0.835, 0.5 + w(0.27), 0.905, 0.025),
+                lathe([(top, w(0.17)), (top + 0.03, w(0.2)), (0.84, w(0.23))])]
+
+    if role == 'P':
+        body = lathe([(0.47, w(0.06)), (0.58, w(0.075)), (0.68, w(0.12)), (0.76, w(0.18))])
+        return base(0.76) + [body, ellipse(0.5, 0.49, w(0.13), 0.035), ellipse(0.5, 0.345, w(0.12))], \
+            [line((0.5 - w(0.2), 0.835), (0.5 + w(0.2), 0.835), w=0.012),
+             line((0.5 - w(0.11), 0.49), (0.5 + w(0.11), 0.49), w=0.01)]
+    if role == 'R':
+        tower = lathe([(0.37, w(0.13)), (0.5, w(0.12)), (0.66, w(0.14)), (0.76, w(0.19))])
+        top = poly((0.5 - w(0.2), 0.17), (0.5 - w(0.12), 0.17), (0.5 - w(0.12), 0.235),
+                   (0.5 - w(0.04), 0.235), (0.5 - w(0.04), 0.17), (0.5 + w(0.04), 0.17),
+                   (0.5 + w(0.04), 0.235), (0.5 + w(0.12), 0.235), (0.5 + w(0.12), 0.17),
+                   (0.5 + w(0.2), 0.17), (0.5 + w(0.19), 0.33), (0.5 - w(0.19), 0.33))
+        return base(0.76) + [tower, top, rrect(0.5 - w(0.17), 0.31, 0.5 + w(0.17), 0.39, 0.01)], \
+            [line((0.5 - w(0.2), 0.835), (0.5 + w(0.2), 0.835), w=0.012),
+             line((0.5 - w(0.16), 0.33), (0.5 + w(0.16), 0.33), w=0.012),
+             line((0.5 - w(0.13), 0.39), (0.5 + w(0.13), 0.39), w=0.012),
+             line((0.5 - w(0.16), 0.70), (0.5 + w(0.16), 0.70), w=0.01)]
+    if role == 'B':
+        body = lathe([(0.58, w(0.065)), (0.66, w(0.08)), (0.72, w(0.13)), (0.77, w(0.18))])
+        head = lathe([(0.17, 0.0), (0.2, w(0.05)), (0.27, w(0.105)), (0.37, w(0.135)), (0.47, w(0.12)),
+                      (0.55, w(0.06)), (0.565, 0.0)])
+        return base(0.77) + [body, head, ellipse(0.5, 0.575, w(0.135), 0.035), ellipse(0.5, 0.145, w(0.045))], \
+            [line((0.5 - w(0.2), 0.835), (0.5 + w(0.2), 0.835), w=0.012),
+             line((0.5 - w(0.12), 0.575), (0.5 + w(0.12), 0.575), w=0.01),
+             line((0.5 - w(0.03), 0.42), (0.5 + w(0.06), 0.29), w=0.018)]
+    if role == 'N':
+        def k(x):  # widen around the centre
+            return 0.5 + (x - 0.5) * fat
+        head = spline((k(0.32), 0.78), (k(0.34), 0.66), (k(0.41), 0.57), (k(0.44), 0.52), (k(0.36), 0.51),
+                      (k(0.27), 0.505), (k(0.2), 0.47), (k(0.17), 0.42), (k(0.21), 0.37),
+                      (k(0.31), 0.30), (k(0.37), 0.23), (k(0.39), 0.14), (k(0.45), 0.19), (k(0.5), 0.15),
+                      (k(0.54), 0.21), (k(0.64), 0.25), (k(0.73), 0.36), (k(0.77), 0.52),
+                      (k(0.75), 0.68), (k(0.72), 0.78))
+        return base(0.76) + [head], \
+            [line((0.5 - w(0.2), 0.835), (0.5 + w(0.2), 0.835), w=0.012),
+             ('ellipse', (k(0.355), 0.31, 0.022, 0.022)),
+             line((k(0.21), 0.435), (k(0.25), 0.44), w=0.012),
+             line((k(0.55), 0.24), (k(0.66), 0.33), (k(0.70), 0.47), (k(0.69), 0.62), w=0.012)]
+    if role == 'Q':
+        body = lathe([(0.5, w(0.1)), (0.6, w(0.11)), (0.7, w(0.15)), (0.77, w(0.2))])
+        crown = poly((0.5 - w(0.22), 0.25), (0.5 - w(0.12), 0.44), (0.5 - w(0.085), 0.21), (0.5, 0.42),
+                     (0.5 + w(0.085), 0.21), (0.5 + w(0.12), 0.44), (0.5 + w(0.22), 0.25),
+                     (0.5 + w(0.15), 0.52), (0.5 - w(0.15), 0.52))
+        balls = [ellipse(0.5 + w(dx), y, w(0.035)) for dx, y in
+                 ((-0.22, 0.235), (-0.085, 0.19), (0.085, 0.19), (0.22, 0.235))]
+        return base(0.77) + [body, crown, ellipse(0.5, 0.52, w(0.155), 0.035), ellipse(0.5, 0.135, w(0.045))] \
+            + balls, [line((0.5 - w(0.2), 0.835), (0.5 + w(0.2), 0.835), w=0.012),
+                      line((0.5 - w(0.14), 0.52), (0.5 + w(0.14), 0.52), w=0.012),
+                      line((0.5 - w(0.13), 0.68), (0.5 + w(0.13), 0.68), w=0.01)]
+    if role == 'K':
+        body = lathe([(0.47, w(0.11)), (0.58, w(0.11)), (0.7, w(0.15)), (0.77, w(0.2))])
+        head = lathe([(0.27, w(0.13)), (0.33, w(0.17)), (0.42, w(0.15)), (0.48, w(0.12))])
+        return base(0.77) + [body, head, ellipse(0.5, 0.485, w(0.15), 0.035),
+                             rrect(0.5 - w(0.025), 0.08, 0.5 + w(0.025), 0.28, 0.008),
+                             rrect(0.5 - w(0.075), 0.13, 0.5 + w(0.075), 0.175, 0.008)], \
+            [line((0.5 - w(0.2), 0.835), (0.5 + w(0.2), 0.835), w=0.012),
+             line((0.5 - w(0.14), 0.485), (0.5 + w(0.14), 0.485), w=0.012),
+             line((0.5 - w(0.14), 0.33), (0.5 + w(0.14), 0.33), w=0.01),
+             line((0.5 - w(0.13), 0.68), (0.5 + w(0.13), 0.68), w=0.01)]
+
 
 def ink(role):
-    base = [rrect(0.25, 0.83, 0.75, 0.90, 0.03), rrect(0.30, 0.77, 0.70, 0.84, 0.02)]
-    bands = [line((0.31, 0.835), (0.69, 0.835), w=0.014)]
-    if role == 'P':
-        return base + [flare(0.53, 0.78, 0.055, 0.17), ellipse(0.5, 0.53, 0.115, 0.03),
-                       ellipse(0.5, 0.40, 0.10)], bands + [line((0.36, 0.53), (0.64, 0.53), w=0.012)]
-    if role == 'R':
-        top = poly((0.31, 0.19), (0.39, 0.19), (0.39, 0.25), (0.46, 0.25), (0.46, 0.19), (0.54, 0.19),
-                   (0.54, 0.25), (0.61, 0.25), (0.61, 0.19), (0.69, 0.19), (0.67, 0.36), (0.33, 0.36))
-        return base + [top, poly((0.36, 0.36), (0.64, 0.36), (0.66, 0.77), (0.34, 0.77))], bands + [
-            line((0.35, 0.36), (0.65, 0.36), w=0.014), line((0.35, 0.68), (0.65, 0.68), w=0.012)]
-    if role == 'B':
-        return base + [flare(0.58, 0.78, 0.06, 0.17), ellipse(0.5, 0.57, 0.13, 0.03),
-                       mitre(0.18, 0.57, 0.125), ellipse(0.5, 0.15, 0.04)], bands + [
-            line((0.46, 0.42), (0.56, 0.30), w=0.016), line((0.37, 0.57), (0.63, 0.57), w=0.012)]
-    if role == 'N':
-        head = poly((0.33, 0.77), (0.36, 0.62), (0.45, 0.53), (0.37, 0.52), (0.27, 0.50), (0.21, 0.45),
-                    (0.22, 0.39), (0.30, 0.33), (0.38, 0.25), (0.40, 0.14), (0.46, 0.20), (0.50, 0.15),
-                    (0.55, 0.22), (0.65, 0.27), (0.71, 0.40), (0.72, 0.58), (0.69, 0.77))
-        return base + [head], bands + [
-            ('ellipse', (0.37, 0.33, 0.02, 0.02)), line((0.25, 0.44), (0.29, 0.44), w=0.012),
-            line((0.56, 0.26), (0.64, 0.34), (0.67, 0.48), (0.66, 0.62), w=0.012)]
-    if role == 'Q':
-        crown = poly((0.30, 0.26), (0.39, 0.42), (0.43, 0.22), (0.5, 0.40), (0.57, 0.22), (0.61, 0.42),
-                     (0.70, 0.26), (0.64, 0.50), (0.36, 0.50))
-        balls = [ellipse(x, y, 0.03) for x, y in ((0.30, 0.24), (0.43, 0.19), (0.57, 0.19), (0.70, 0.24))]
-        return base + [poly((0.40, 0.50), (0.60, 0.50), (0.66, 0.77), (0.34, 0.77)), crown,
-                       ellipse(0.5, 0.15, 0.04)] + balls, bands + [
-            line((0.37, 0.50), (0.63, 0.50), w=0.014), line((0.36, 0.69), (0.64, 0.69), w=0.012)]
-    if role == 'K':
-        return base + [poly((0.40, 0.46), (0.60, 0.46), (0.66, 0.77), (0.34, 0.77)),
-                       poly((0.33, 0.33), (0.67, 0.33), (0.62, 0.47), (0.38, 0.47)),
-                       rrect(0.475, 0.09, 0.525, 0.33), rrect(0.42, 0.15, 0.58, 0.20)], bands + [
-            line((0.37, 0.47), (0.63, 0.47), w=0.014), line((0.36, 0.69), (0.64, 0.69), w=0.012),
-            line((0.36, 0.40), (0.64, 0.40), w=0.012)]
+    return staunton(role)
+
+
+def bubble(role):
+    body, _ = staunton(role, fat=1.12)
+    # Neo-style: no engraved lines, just the knight's eye.
+    details = [d for d in staunton(role, fat=1.12)[1] if d[0] == 'ellipse']
+    return body, details
+
+
+def wood(role):
+    body, details = staunton(role, fat=1.05)
+    return body, [d for d in details if d[0] == 'ellipse']
+
+
+def glass(role):
+    body, details = staunton(role, fat=1.04)
+    return body, [d for d in details if d[0] == 'ellipse']
 
 
 # ---------------------------------------------------------------------------
-# Bubble: chunky, rounded, glossy.
+# Bold: heavy flat shapes with chunky features, like a printed diagram.
 
-def bubble(role):
-    base = [rrect(0.20, 0.74, 0.80, 0.90, 0.07)]
+def bold(role):
+    base = [rrect(0.2, 0.78, 0.8, 0.9, 0.03)]
     if role == 'P':
-        return base + [ellipse(0.5, 0.64, 0.17, 0.14), ellipse(0.5, 0.38, 0.15)], []
+        return base + [lathe([(0.5, 0.09), (0.62, 0.1), (0.72, 0.16), (0.79, 0.22)]),
+                       ellipse(0.5, 0.36, 0.14), rrect(0.33, 0.48, 0.67, 0.55, 0.03)], []
     if role == 'R':
-        return base + [rrect(0.30, 0.38, 0.70, 0.78, 0.05), rrect(0.24, 0.16, 0.76, 0.42, 0.07)], [
-            line((0.42, 0.17), (0.42, 0.26), w=0.04), line((0.58, 0.17), (0.58, 0.26), w=0.04)]
+        top = poly((0.25, 0.15), (0.37, 0.15), (0.37, 0.24), (0.45, 0.24), (0.45, 0.15), (0.55, 0.15),
+                   (0.55, 0.24), (0.63, 0.24), (0.63, 0.15), (0.75, 0.15), (0.75, 0.38), (0.25, 0.38))
+        return base + [top, trapezoid(0.36, 0.17, 0.79, 0.24)], [
+            line((0.29, 0.38), (0.71, 0.38), w=0.028), line((0.27, 0.66), (0.73, 0.66), w=0.028)]
     if role == 'B':
-        return base + [ellipse(0.5, 0.68, 0.16, 0.10), mitre(0.14, 0.64, 0.18), ellipse(0.5, 0.13, 0.055)], [
-            line((0.46, 0.45), (0.57, 0.32), w=0.035)]
+        return base + [lathe([(0.6, 0.08), (0.7, 0.13), (0.79, 0.22)]),
+                       lathe([(0.12, 0.0), (0.18, 0.08), (0.3, 0.16), (0.45, 0.15), (0.6, 0.0)]),
+                       rrect(0.31, 0.56, 0.69, 0.63, 0.03), ellipse(0.5, 0.11, 0.055)], [
+            line((0.45, 0.43), (0.59, 0.27), w=0.04)]
     if role == 'N':
-        head = poly((0.28, 0.78), (0.32, 0.60), (0.40, 0.54), (0.28, 0.54), (0.19, 0.50), (0.17, 0.40),
-                    (0.26, 0.31), (0.38, 0.24), (0.42, 0.13), (0.50, 0.21), (0.62, 0.22), (0.74, 0.33),
-                    (0.79, 0.52), (0.76, 0.78))
-        return base + [head, ellipse(0.24, 0.45, 0.075, 0.065)], [
-            ('ellipse', (0.37, 0.33, 0.035, 0.035)), ('ellipse', (0.21, 0.44, 0.015, 0.015))]
+        head = spline((0.27, 0.79), (0.3, 0.64), (0.4, 0.55), (0.3, 0.53), (0.18, 0.5), (0.13, 0.42),
+                      (0.2, 0.33), (0.32, 0.25), (0.36, 0.12), (0.47, 0.18), (0.62, 0.2), (0.75, 0.31),
+                      (0.81, 0.52), (0.79, 0.79))
+        return base + [head], [('ellipse', (0.34, 0.31, 0.035, 0.035)),
+                               line((0.55, 0.23), (0.69, 0.36), (0.73, 0.55), w=0.03)]
     if role == 'Q':
-        balls = [ellipse(x, y, 0.065) for x, y in ((0.25, 0.30), (0.40, 0.21), (0.60, 0.21), (0.75, 0.30))]
-        return base + [rrect(0.27, 0.44, 0.73, 0.78, 0.09), poly((0.25, 0.30), (0.40, 0.22), (0.5, 0.40),
-                                                                  (0.60, 0.22), (0.75, 0.30), (0.71, 0.50),
-                                                                  (0.29, 0.50))] + balls, []
+        crown = poly((0.17, 0.24), (0.32, 0.47), (0.38, 0.17), (0.5, 0.44), (0.62, 0.17), (0.68, 0.47),
+                     (0.83, 0.24), (0.74, 0.6), (0.26, 0.6))
+        balls = [ellipse(x, y, 0.055) for x, y in ((0.17, 0.22), (0.38, 0.15), (0.62, 0.15), (0.83, 0.22))]
+        return base + [trapezoid(0.58, 0.22, 0.79, 0.26), crown] + balls, [
+            line((0.29, 0.6), (0.71, 0.6), w=0.028)]
     if role == 'K':
-        return base + [rrect(0.27, 0.40, 0.73, 0.78, 0.09), rrect(0.44, 0.08, 0.56, 0.42, 0.04),
-                       rrect(0.34, 0.16, 0.66, 0.28, 0.04)], []
+        return base + [trapezoid(0.5, 0.22, 0.79, 0.26), lathe([(0.3, 0.16), (0.4, 0.24), (0.52, 0.21)]),
+                       rrect(0.45, 0.06, 0.55, 0.32, 0.01), rrect(0.36, 0.13, 0.64, 0.22, 0.01)], [
+            line((0.3, 0.52), (0.7, 0.52), w=0.028)]
 
+
+# ---------------------------------------------------------------------------
+# Pixel: 8-bit sprites drawn cell by cell on a 16x16 grid. "#" is the
+# piece, "o" a detail (eye, slit, band); the outline is added around them.
+
+PIXEL = {
+    'K': ['.......##.......',
+          '......####......',
+          '.......##.......',
+          '....########....',
+          '...##########...',
+          '...##oooooo##...',
+          '....########....',
+          '.....######.....',
+          '......####......',
+          '......####......',
+          '.....######.....',
+          '....########....',
+          '...##########...',
+          '..############..',
+          '..############..',
+          '................'],
+    'Q': ['.......##.......',
+          '..##..####..##..',
+          '..##...##...##..',
+          '...#...##...#...',
+          '...##.####.##...',
+          '...##########...',
+          '....##oooo##....',
+          '.....######.....',
+          '......####......',
+          '......####......',
+          '.....######.....',
+          '....########....',
+          '...##########...',
+          '..############..',
+          '..############..',
+          '................'],
+    'R': ['................',
+          '................',
+          '...##..##..##...',
+          '...##..##..##...',
+          '...##########...',
+          '...##oooooo##...',
+          '....########....',
+          '.....######.....',
+          '.....######.....',
+          '.....######.....',
+          '.....######.....',
+          '....########....',
+          '...##########...',
+          '..############..',
+          '..############..',
+          '................'],
+    'B': ['.......##.......',
+          '......####......',
+          '.....####o#.....',
+          '.....###o##.....',
+          '....###o####....',
+          '....########....',
+          '.....######.....',
+          '......####......',
+          '.....oooooo.....',
+          '......####......',
+          '.....######.....',
+          '....########....',
+          '...##########...',
+          '..############..',
+          '..############..',
+          '................'],
+    'N': ['................',
+          '.......#.#......',
+          '......######....',
+          '.....########...',
+          '....##o#######..',
+          '...###########..',
+          '..############..',
+          '..####.#######..',
+          '...##..#######..',
+          '.......#######..',
+          '......#######...',
+          '.....########...',
+          '...##########...',
+          '..############..',
+          '..############..',
+          '................'],
+    'P': ['................',
+          '................',
+          '................',
+          '......####......',
+          '.....######.....',
+          '.....######.....',
+          '......####......',
+          '.....oooooo.....',
+          '......####......',
+          '......####......',
+          '.....######.....',
+          '....########....',
+          '...##########...',
+          '..############..',
+          '..############..',
+          '................'],
+}
+
+
+def render_pixel(spec, color, role):
+    fill, outline, detail = (_rgb(c) for c in spec['colors'][color])
+    grid = PIXEL[role]
+    # The 16-cell sprite on a 20-cell canvas: room for the outline, and the
+    # piece about as big as the other sets'.
+    n, ox, oy = 20, 2, 3
+    cells = Image.new('RGBA', (n, n), (0, 0, 0, 0))
+    pix = cells.load()
+    body = {(x + ox, y + oy): ch for y, row in enumerate(grid) for x, ch in enumerate(row) if ch in '#o'}
+    for y in range(n):
+        for x in range(n):
+            if (x, y) in body:
+                pix[x, y] = (*(detail if body[(x, y)] == 'o' else fill), 255)
+            elif any((x + dx, y + dy) in body for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+                pix[x, y] = (*outline, 255)
+    return cells.resize((S, S), Image.NEAREST)
+
+
+# ---------------------------------------------------------------------------
+# Rendering
 
 STYLES = {
     'geo': dict(make=geo, outline=0.022,
                 colors={'w': ('#fbfbf8', '#1c1c1c', '#1c1c1c'), 'b': ('#2a2a2c', '#0b0b0b', '#e9e9e4')}),
-    'ink': dict(make=ink, outline=0.014,
-                colors={'w': ('#ffffff', '#111111', '#111111'), 'b': ('#1a1a1a', '#000000', '#f2f2f2')}),
-    'bubble': dict(make=bubble, outline=0.03, gloss=True,
-                   colors={'w': ('#fff6e3', '#3b2f22', '#3b2f22'), 'b': ('#33363d', '#111214', '#e8e6e0')}),
+    'ink': dict(make=ink, outline=0.016,
+                colors={'w': ('#ffffff', '#0e0e0e', '#0e0e0e'), 'b': ('#141414', '#000000', '#f4f4f4')}),
+    'bubble': dict(make=bubble, outline=0.02, shade='soft',
+                   colors={'w': ('#fbfbf6', '#2c2f36', '#2c2f36'), 'b': ('#3a3d45', '#14161a', '#f0f0ec')}),
+    'wood': dict(make=wood, outline=0.017, shade='wood',
+                 colors={'w': ('#ecd2a0', '#5b3c1c', '#5b3c1c'), 'b': ('#6b3f1d', '#2a1608', '#f0dcb4')}),
+    'glass': dict(make=glass, outline=0.012, shade='glass',
+                  colors={'w': ('#e9f4fb', '#4f6f86', '#4f6f86'), 'b': ('#2b3442', '#0d1117', '#c9d6e3')}),
+    'bold': dict(make=bold, outline=0.03,
+                 colors={'w': ('#ffffff', '#000000', '#000000'), 'b': ('#000000', '#000000', '#ffffff')}),
+    'eightbit': dict(pixel=True,
+                  colors={'w': ('#f6f6f2', '#111111', '#111111'), 'b': ('#23262d', '#050505', '#d8d8d4')}),
 }
+
+
+def _rgb(hex_color):
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _mix(a, b, t):
+    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def _shaded_fill(fill, kind, color):
+    """A fill image for the shaded styles: light from the upper left."""
+    base = _rgb(fill)
+    small = 128
+    img = Image.new('RGB', (small, small))
+    pixels = img.load()
+    for y in range(small):
+        for x in range(small):
+            u, v = x / small, y / small
+            if kind == 'soft':
+                # Rounded, soft light: brighter left of centre, darker at the right edge.
+                t = max(0.0, min(1.0, (u - 0.28) * 1.3 + (v - 0.4) * 0.35))
+                pixels[x, y] = _mix(_mix(base, (255, 255, 255), 0.25), _mix(base, (0, 0, 0), 0.3), t)
+            elif kind == 'wood':
+                # Grain: soft stripes running down the piece, light from the left.
+                grain = 0.5 + 0.5 * math.sin(u * 46 + math.sin(v * 9) * 2.2)
+                light = max(0.0, min(1.0, (u - 0.3) * 1.2))
+                c = _mix(base, _mix(base, (0, 0, 0), 0.25), grain * 0.35)
+                pixels[x, y] = _mix(_mix(c, (255, 240, 210), 0.2), _mix(c, (0, 0, 0), 0.35), light)
+            elif kind == 'glass':
+                t = max(0.0, min(1.0, (u - 0.2) * 1.1))
+                pixels[x, y] = _mix(_mix(base, (255, 255, 255), 0.35), _mix(base, (0, 0, 0), 0.2), t)
+    return img.resize((S, S), Image.BICUBIC)
 
 
 def render(style, color, role):
     spec = STYLES[style]
+    if spec.get('pixel'):
+        return render_pixel(spec, color, role)
     body, details = spec['make'](role)
     fill, outline, detail = spec['colors'][color]
 
@@ -227,13 +497,29 @@ def render(style, color, role):
 
     out = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     out.paste(outline, (0, 0), grown)
-    out.paste(fill, (0, 0), mask)
+    shade = spec.get('shade')
+    if shade:
+        out.paste(_shaded_fill(fill, shade, color), (0, 0), mask)
+    else:
+        out.paste(fill, (0, 0), mask)
 
-    if spec.get('gloss'):
+    if shade == 'soft':
+        # A soft highlight near the top left.
         gloss = Image.new('L', (S, S), 0)
-        ImageDraw.Draw(gloss).ellipse([px(0.28), px(0.10), px(0.52), px(0.40)], fill=110 if color == 'w' else 70)
-        gloss = gloss.filter(ImageFilter.GaussianBlur(px(0.04)))
+        ImageDraw.Draw(gloss).ellipse([px(0.3), px(0.12), px(0.5), px(0.42)], fill=90 if color == 'w' else 60)
+        gloss = gloss.filter(ImageFilter.GaussianBlur(px(0.05)))
         out.paste('#ffffff', (0, 0), ImageChops.multiply(gloss, mask))
+    if shade == 'glass':
+        # See-through body with a bright rim and a long reflection.
+        alpha = out.getchannel('A')
+        body_alpha = mask.point(lambda v: v * (238 if color == 'w' else 240) // 255)
+        out.putalpha(ImageChops.lighter(ImageChops.subtract(alpha, mask), body_alpha))
+        streak = Image.new('L', (S, S), 0)
+        ImageDraw.Draw(streak).rounded_rectangle([px(0.36), px(0.1), px(0.43), px(0.8)], radius=px(0.03),
+                                                 fill=150 if color == 'w' else 110)
+        streak = ImageChops.multiply(streak.filter(ImageFilter.GaussianBlur(px(0.015))), mask)
+        out.paste('#ffffff', (0, 0), streak)
+        out.putalpha(ImageChops.lighter(out.getchannel('A'), streak))
 
     layer = Image.new('L', (S, S), 0)
     dl = ImageDraw.Draw(layer)
@@ -244,20 +530,24 @@ def render(style, color, role):
 
 
 def main():
+    styles = [s for s in STYLES if '--only' not in sys.argv or s in sys.argv[sys.argv.index('--only') + 1].split(',')]
     previews = []
-    for style in STYLES:
+    for style in styles:
         for color in 'wb':
             for role in 'KQRBNP':
                 image = render(style, color, role)
                 previews.append(image.resize((96, 96), Image.LANCZOS))
+                if '--no-write' in sys.argv:
+                    continue
                 for folder, size in SIZES.items():
                     target = os.path.join(OUT, style, folder)
                     os.makedirs(target, exist_ok=True)
-                    image.resize((size, size), Image.LANCZOS).save(
+                    resample = Image.NEAREST if STYLES[style].get('pixel') else Image.LANCZOS
+                    image.resize((size, size), resample).save(
                         os.path.join(target, f'{color}{role}.webp'), lossless=True)
     if '--preview' in sys.argv:
         path = sys.argv[sys.argv.index('--preview') + 1]
-        rows = len(STYLES) * 2
+        rows = len(styles) * 2
         sheet = Image.new('RGBA', (12 * 96, rows * 96), (0, 0, 0, 255))
         sq = ImageDraw.Draw(sheet)
         for r in range(rows):

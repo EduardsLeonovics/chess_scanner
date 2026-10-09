@@ -6,11 +6,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('defaults to the brown board and classic pieces', () async {
+  test('defaults to the golden look: white and yellow board, golden black pieces', () async {
     SharedPreferences.setMockInitialValues({});
     final appearance = Appearance.fromPrefs(await SharedPreferences.getInstance());
     expect(appearance, const Appearance());
-    expect(appearance.colorScheme, ChessboardColorScheme.brown);
+    expect(appearance.boardThemeId, goldenThemeId);
+    expect(appearance.colorScheme.lightSquare, const Color(0xFFFFFDF5));
+    expect(appearance.colorScheme.darkSquare, const Color(0xFFF2CC55));
+    expect(appearance.whitePieces, const Color(0xFFFFFFFF));
+    expect(appearance.blackPieces, Appearance.defaultBlackPieces);
+    expect(appearance.background, Appearance.defaultBackground);
+    expect(appearance.effectiveBlackOutline, isNotNull, reason: 'golden pieces need an edge on yellow');
     expect(appearance.pieceSet, PieceSet.cburnett);
   });
 
@@ -26,6 +32,7 @@ void main() {
       blackPieces: Color(0xFF1E2A38),
       showBestMoveArrow: false,
       showEvalBar: false,
+      animation: PieceAnimation.instant,
       blackOutline: Color(0xFFFF0000),
     );
     await custom.saveTo(prefs);
@@ -42,16 +49,16 @@ void main() {
     expect(appearance.colorScheme.darkSquare, const Color(0xFF769656));
   });
 
-  test('offers textured board themes and six piece styles', () {
+  test('offers textured board themes and ten piece styles', () {
     expect(
       boardThemes.where((t) => t.scheme.background is ImageChessboardBackground),
       isNotEmpty,
     );
-    expect(pieceStyles, hasLength(6));
+    expect(pieceStyles, hasLength(10));
   });
 
   test('the black & white board outlines black pieces in white unless turned off', () {
-    const plain = Appearance();
+    const plain = Appearance(boardThemeId: 'brown');
     expect(plain.effectiveBlackOutline, isNull);
     const bw = Appearance(boardThemeId: blackWhiteThemeId);
     expect(bw.colorScheme.lightSquare, const Color(0xFFFFFFFF));

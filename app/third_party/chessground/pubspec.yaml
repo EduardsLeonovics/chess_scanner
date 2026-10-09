@@ -42,4 +42,8 @@ flutter:
     - assets/piece_sets/geo/
     - assets/piece_sets/ink/
     - assets/piece_sets/bubble/
+    - assets/piece_sets/wood/
+    - assets/piece_sets/glass/
+    - assets/piece_sets/bold/
+    - assets/piece_sets/eightbit/
     - assets/boards/

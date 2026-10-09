@@ -67,11 +67,16 @@ PieceTemplate? templateFromPieceImage(Uint8List bytes, Role role) {
 /// Finds a 2D chessboard in a screenshot, or a flat board photographed at
 /// an angle (see [rectifyBoard]), and reads the pieces on it.
 ///
+/// Strongly coloured pixels are normally taken for arrows and highlights
+/// drawn over the board; [pieceHues] (degrees) are hues that belong to
+/// pieces instead, e.g. this app's golden pieces in its own screenshots.
+///
 /// Throws [RecognitionException] if no board is found.
 RecognizedBoard recognizeScreenshot(
   Uint8List imageBytes,
-  List<PieceTemplate> templates,
-) {
+  List<PieceTemplate> templates, {
+  List<double> pieceHues = const [],
+}) {
   var image = img.decodeImage(imageBytes);
   if (image == null) {
     throw const RecognitionException("Couldn't read that image.");
@@ -104,12 +109,39 @@ RecognizedBoard recognizeScreenshot(
   final squares = <_SquareReading>[];
   for (var r = 0; r < 8; r++) {
     for (var c = 0; c < 8; c++) {
-      final reading = _readSquare(pixels, grid, c, r, templates);
+      final reading = _readSquare(pixels, grid, c, r, templates, pieceHues);
       if (reading != null) squares.add(reading);
     }
   }
   _dropSmallMarks(squares);
   return _assemble(squares, _labelledBlackAtBottom(pixels, grid, squares));
+}
+
+/// Whether the colour's hue is within 25 degrees of one of [hues].
+bool _isPieceHue(int r, int g, int b, List<double> hues) {
+  if (hues.isEmpty) return false;
+  final hue = rgbHue(r, g, b);
+  for (final h in hues) {
+    final d = (hue - h).abs() % 360;
+    if (math.min(d, 360 - d) <= 25) return true;
+  }
+  return false;
+}
+
+/// The hue of a colour in degrees (0 red, 120 green, 240 blue).
+double rgbHue(int r, int g, int b) {
+  final mx = math.max(r, math.max(g, b)), mn = math.min(r, math.min(g, b));
+  if (mx == mn) return 0;
+  final d = (mx - mn).toDouble();
+  final double h;
+  if (mx == r) {
+    h = ((g - b) / d) % 6;
+  } else if (mx == g) {
+    h = (b - r) / d + 2;
+  } else {
+    h = (r - g) / d + 4;
+  }
+  return (h * 60 + 360) % 360;
 }
 
 /// Removes marks much smaller than the pieces around them: in every piece
@@ -634,9 +666,10 @@ class _SquareReading {
   final int col;
   final int row;
 
-  /// Share of the piece's pixels that are bright, minus the share that are
-  /// dark (-1 to 1); used to tell White from Black relative to the other
-  /// pieces in the same image.
+  /// The piece's fill brightness, -1 (black) to 1 (white), the median
+  /// inside it, less its saturation (white is never strongly coloured).
+  /// Used to tell White from Black relative to the other pieces in the
+  /// same image.
   final double brightness;
 
   /// Candidate roles, best first.
@@ -657,6 +690,7 @@ _SquareReading? _readSquare(
   int c,
   int r,
   List<PieceTemplate> templates,
+  List<double> pieceHues,
 ) {
   final insetX = math.max(1, (g.stepX * 0.04).round());
   final insetY = math.max(1, (g.stepY * 0.04).round());
@@ -690,13 +724,16 @@ _SquareReading? _readSquare(
       final red = p.rgb[i], green = p.rgb[i + 1], blue = p.rgb[i + 2];
       final dist = bg.distanceTo(red, green, blue);
       // Pieces are drawn in near-neutral colours; strongly coloured pixels
-      // are arrows or highlights drawn over the board.
+      // are arrows or highlights drawn over the board, unless their hue is
+      // a known piece colour.
       final saturation = math.max(red, math.max(green, blue)) -
           math.min(red, math.min(green, blue));
-      if (dist > threshold && saturation <= 45) {
+      final pieceHue = saturation > 45 && _isPieceHue(red, green, blue, pieceHues);
+      if (dist > threshold && (saturation <= 45 || pieceHue)) {
         mask[y * w + x] = 1;
         final lum = p.lum[(top + y) * p.width + left + x];
-        if (saturation <= 40 && (lum <= 70 || lum >= 200)) core[y * w + x] = 1;
+        // "Ink": clearly black or white, or the known colour of the pieces.
+        if (pieceHue || (saturation <= 40 && (lum <= 70 || lum >= 200))) core[y * w + x] = 1;
       }
     }
   }
@@ -709,19 +746,20 @@ _SquareReading? _readSquare(
   // Judge brightness away from the outline, which is dark on white pieces
   // too; measured over all lichess sets this separates the colours best.
   final interior = blob.eroded(math.max(1, (w * 0.04).round()));
-  // Bright minus dark share: black pieces with white detailing (lichess's
-  // black rook and king) still come out clearly darker than white ones.
-  var bright = 0, dark = 0, counted = 0;
+  // The median brightness inside the piece is its fill colour: drawn lines
+  // and details (white ones on black pieces, black ones on white) are a
+  // minority. Its median saturation tells white from coloured (golden)
+  // pieces, which can be nearly as bright.
+  final lums = Int32List(256), sats = Int32List(256);
+  var counted = 0;
   for (var y = blob.top; y <= blob.bottom; y++) {
     for (var x = blob.left; x <= blob.right; x++) {
       if (interior[y * w + x] == 0) continue;
       counted++;
-      final lum = p.lum[(top + y) * p.width + left + x];
-      if (lum >= 160) {
-        bright++;
-      } else if (lum <= 100) {
-        dark++;
-      }
+      final i = (top + y) * p.width + left + x;
+      lums[p.lum[i]]++;
+      final red = p.rgb[i * 3], green = p.rgb[i * 3 + 1], blue = p.rgb[i * 3 + 2];
+      sats[math.max(red, math.max(green, blue)) - math.min(red, math.min(green, blue))]++;
     }
   }
 
@@ -740,7 +778,9 @@ _SquareReading? _readSquare(
   // Real pieces of ordinary sets match at 0.72 or better; weaker matches
   // are overlays drawn on the board (share buttons, lens icons, arrows).
   if (ranked.first.$2 < 0.65) return null;
-  return _SquareReading(c, r, counted == 0 ? 0 : (bright - dark) / counted, ranked, shape, relHeight);
+  final fill = counted == 0 ? 128 : _kth(lums, 0, 256, counted ~/ 2);
+  final saturation = counted == 0 ? 0 : _kth(sats, 0, 256, counted ~/ 2);
+  return _SquareReading(c, r, (fill - 128) / 128 - saturation / 200, ranked, shape, relHeight);
 }
 
 /// Where two roles match a piece about equally well against the templates,
@@ -1152,10 +1192,43 @@ bool _makePlausible(List<_SquareReading> readings) {
     return total - 10 * bad - unusual - shorterKing;
   }
 
+  // Few groups (the usual case): try every combination of roles, or of
+  // each group's three likeliest ones when there are many groups. A fix
+  // can take two groups changing at once (bishops back to bishops and
+  // kings to kings), which one step at a time can't find; and an unusual
+  // piece set's pawns may not even look most like pawns.
+  final allRoles = math.pow(Role.values.length, groups.length) <= 300000;
+  final options = [
+    for (final g in groups) allRoles ? Role.values : [for (final e in g.first.ranked.take(3)) e.$1],
+  ];
+  final combinations = options.fold<double>(1, (n, o) => n * o.length);
+  if (combinations <= 300000) {
+    var best = double.negativeInfinity;
+    List<Role>? bestRoles;
+    void search(int i) {
+      if (i == groups.length) {
+        apply();
+        final value = objective();
+        if (value > best) {
+          best = value;
+          bestRoles = [...groupRole];
+        }
+        return;
+      }
+      for (final role in options[i]) {
+        groupRole[i] = role;
+        search(i + 1);
+      }
+    }
+
+    search(0);
+    groupRole.setAll(0, bestRoles!);
+  }
+
   apply();
   var current = objective();
-  // Hill climbing: change one group's role, or swap two groups' roles,
-  // while that helps.
+  // Hill climbing from there: change one group's role, or swap two groups'
+  // roles, while that helps.
   for (var round = 0; round < 50; round++) {
     var bestValue = current;
     void Function()? bestMove;

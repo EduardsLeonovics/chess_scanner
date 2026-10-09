@@ -110,8 +110,11 @@ Chess.com games.
   Stockfish's `position` command also refuses them (patch in `uci.cpp`).
 - Piece sets: only sets licensed for commercial use (the app shows ads).
   chessground is vendored in `app/third_party/chessground` with the rest
-  removed; licences in its LICENSES.md. Geo, Ink and Bubble are our own,
-  drawn by `app/tool/make_piece_sets.py`.
+  removed; licences in its LICENSES.md. Geo, Ink, Bubble, Wood, Glass, Bold
+  and Eightbit (shown as "8-bit") are our own, drawn by
+  `app/tool/make_piece_sets.py` (don't reuse a chessground set's folder
+  name: `pixel` is lichess's). New own sets also go in the recognizer's
+  `templateSets`, and coloured ones in `pieceSetColors`.
 - Ads and privacy: Google's consent message (UMP) runs at launch
   (`privacy/consent.dart`); ads load only after it allows. Banners only on
   read-only pages (Skills, Openings), never next to a board. Usage
@@ -124,6 +127,12 @@ Chess.com games.
 - Recognition must run offline on-device. No server calls for inference.
 - Recognition output always goes through the editable board-setup screen
   before analysis; never assume it is right.
+- Recognition drops strongly coloured pixels as overlays (arrows,
+  circles), so coloured pieces only read when their hue is passed in:
+  the Scan tab passes the user's piece colours (`Appearance.pieceColors`).
+  `test/fixtures/screenshots/` holds real screenshots with hand-checked
+  positions (`screenshot_positions_test.dart`); every one must keep
+  reading exactly.
 - Performance changes to recognition must not change its output: compare
   `recognizeScreenshot` results on all of `app/test/fixtures/` and
   `screenshots/` before and after.

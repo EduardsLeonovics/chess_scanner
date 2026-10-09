@@ -20,7 +20,12 @@ class BoardTheme {
 /// default so they stand out on the black squares.
 const blackWhiteThemeId = 'blackWhite';
 
+/// ChessHive's own look and the default: white and golden yellow squares.
+/// Black pieces (golden by default) get a dark outline on it.
+const goldenThemeId = 'golden';
+
 final boardThemes = [
+  BoardTheme(goldenThemeId, 'Golden', _solidScheme(const Color(0xFFFFFDF5), const Color(0xFFF2CC55))),
   BoardTheme('brown', 'Brown', ChessboardColorScheme.brown),
   BoardTheme('green', 'Green', ChessboardColorScheme.green),
   BoardTheme('blue', 'Blue', ChessboardColorScheme.blue),
@@ -36,6 +41,13 @@ final boardThemes = [
   BoardTheme(blackWhiteThemeId, 'Black & white', _solidScheme(const Color(0xFFFFFFFF), const Color(0xFF000000))),
 ];
 
+/// The colours of the piece sets that aren't black and white (see
+/// tool/make_piece_sets.py).
+const pieceSetColors = {
+  PieceSet.wood: [Color(0xFFECD2A0), Color(0xFF5B3C1C), Color(0xFF6B3F1D), Color(0xFF2A1608)],
+  PieceSet.glass: [Color(0xFF4F6F86), Color(0xFF2B3442), Color(0xFFC9D6E3)],
+};
+
 /// The piece styles offered in settings: widely used Lichess sets, and
 /// ChessHive's own (all licensed for commercial use; see
 /// third_party/chessground/LICENSES.md).
@@ -46,13 +58,30 @@ const pieceStyles = [
   (PieceSet.geo, 'Geo'),
   (PieceSet.ink, 'Ink'),
   (PieceSet.bubble, 'Bubble'),
+  (PieceSet.wood, 'Wood'),
+  (PieceSet.glass, 'Glass'),
+  (PieceSet.bold, 'Bold'),
+  (PieceSet.eightbit, '8-bit'),
 ];
+
+/// How fast pieces glide to their square when a move is played.
+enum PieceAnimation {
+  instant('Instant', Duration.zero),
+  fast('Fast', Duration(milliseconds: 120)),
+  moderate('Moderate', Duration(milliseconds: 250)),
+  slow('Slow', Duration(milliseconds: 450));
+
+  const PieceAnimation(this.label, this.duration);
+
+  final String label;
+  final Duration duration;
+}
 
 /// How the board and pieces look. Persisted across launches.
 @immutable
 class Appearance {
   const Appearance({
-    this.boardThemeId = 'brown',
+    this.boardThemeId = goldenThemeId,
     this.customLight = const Color(0xFFF0D9B6),
     this.customDark = const Color(0xFFB58863),
     this.pieceSet = PieceSet.cburnett,
@@ -61,6 +90,7 @@ class Appearance {
     this.moveSounds = true,
     this.showBestMoveArrow = true,
     this.showEvalBar = true,
+    this.animation = PieceAnimation.moderate,
     this.whiteOutline,
     this.blackOutline,
     this.background = defaultBackground,
@@ -69,15 +99,21 @@ class Appearance {
   /// [boardThemeId] when the user picked their own square colours.
   static const customThemeId = 'custom';
   static const defaultWhitePieces = Color(0xFFFFFFFF);
-  static const defaultBlackPieces = Color(0xFF000000);
 
-  /// A dark grey, light enough that black pieces off the board (e.g. in
-  /// the editor's palette) stand out against it.
-  static const defaultBackground = Color(0xFF34373C);
+  /// Golden yellow: ChessHive's "black" pieces.
+  static const defaultBlackPieces = Color(0xFFC99416);
+
+  /// The piece images' own colours: no tinting needed.
+  static const untintedWhite = Color(0xFFFFFFFF);
+  static const untintedBlack = Color(0xFF000000);
+
+  /// Golden yellow, ChessHive's colour.
+  static const defaultBackground = Color(0xFFE8B423);
 
   /// Ready-made backgrounds offered in settings.
   static const backgroundPresets = [
     defaultBackground,
+    Color(0xFF34373C),
     Color(0xFF1F2124),
     Color(0xFF2B3A4A),
     Color(0xFF2E3B2F),
@@ -106,9 +142,12 @@ class Appearance {
   /// switches this too).
   final bool showEvalBar;
 
+  /// How fast pieces move on the boards.
+  final PieceAnimation animation;
+
   /// A ring drawn around the white / black pieces. Null: the default (none,
-  /// or white for black pieces on the [blackWhiteThemeId] board);
-  /// [noOutline]: none, even there.
+  /// except for black pieces: white on the [blackWhiteThemeId] board, dark
+  /// brown on the [goldenThemeId] one); [noOutline]: none, even there.
   final Color? whiteOutline;
   final Color? blackOutline;
 
@@ -119,8 +158,22 @@ class Appearance {
 
   Color? get effectiveWhiteOutline => _visible(whiteOutline);
 
-  Color? get effectiveBlackOutline =>
-      _visible(blackOutline ?? (boardThemeId == blackWhiteThemeId ? const Color(0xFFFFFFFF) : null));
+  /// Colours the pieces are drawn in, for reading this app's own
+  /// screenshots back (see `recognizeBoard`).
+  List<Color> get pieceColors => [
+        whitePieces,
+        blackPieces,
+        ?effectiveWhiteOutline,
+        ?effectiveBlackOutline,
+        ...?pieceSetColors[pieceSet],
+      ];
+
+  Color? get effectiveBlackOutline => _visible(blackOutline ??
+      switch (boardThemeId) {
+        blackWhiteThemeId => const Color(0xFFFFFFFF),
+        goldenThemeId => const Color(0xFF3D2A00),
+        _ => null,
+      });
 
   static Color? _visible(Color? c) => c == null || c.a == 0 ? null : c;
 
@@ -143,6 +196,7 @@ class Appearance {
     bool? moveSounds,
     bool? showBestMoveArrow,
     bool? showEvalBar,
+    PieceAnimation? animation,
     Color? Function()? whiteOutline,
     Color? Function()? blackOutline,
     Color? background,
@@ -157,6 +211,7 @@ class Appearance {
       moveSounds: moveSounds ?? this.moveSounds,
       showBestMoveArrow: showBestMoveArrow ?? this.showBestMoveArrow,
       showEvalBar: showEvalBar ?? this.showEvalBar,
+      animation: animation ?? this.animation,
       whiteOutline: whiteOutline == null ? this.whiteOutline : whiteOutline(),
       blackOutline: blackOutline == null ? this.blackOutline : blackOutline(),
       background: background ?? this.background,
@@ -172,6 +227,7 @@ class Appearance {
   static const _moveSoundsKey = 'appearance.moveSounds';
   static const _bestMoveArrowKey = 'appearance.bestMoveArrow';
   static const _evalBarKey = 'appearance.evalBar';
+  static const _animationKey = 'appearance.animation';
   static const _whiteOutlineKey = 'appearance.whiteOutline';
   static const _blackOutlineKey = 'appearance.blackOutline';
   static const _backgroundKey = 'appearance.background';
@@ -197,6 +253,7 @@ class Appearance {
       moveSounds: prefs.getBool(_moveSoundsKey) ?? defaults.moveSounds,
       showBestMoveArrow: prefs.getBool(_bestMoveArrowKey) ?? defaults.showBestMoveArrow,
       showEvalBar: prefs.getBool(_evalBarKey) ?? defaults.showEvalBar,
+      animation: PieceAnimation.values.asNameMap()[prefs.getString(_animationKey)] ?? defaults.animation,
       whiteOutline: color(_whiteOutlineKey),
       blackOutline: color(_blackOutlineKey),
       background: color(_backgroundKey) ?? defaults.background,
@@ -213,6 +270,7 @@ class Appearance {
     await prefs.setBool(_moveSoundsKey, moveSounds);
     await prefs.setBool(_bestMoveArrowKey, showBestMoveArrow);
     await prefs.setBool(_evalBarKey, showEvalBar);
+    await prefs.setString(_animationKey, animation.name);
     await prefs.setInt(_backgroundKey, background.toARGB32());
     for (final (key, color) in [(_whiteOutlineKey, whiteOutline), (_blackOutlineKey, blackOutline)]) {
       if (color == null) {
@@ -235,6 +293,7 @@ class Appearance {
       other.moveSounds == moveSounds &&
       other.showBestMoveArrow == showBestMoveArrow &&
       other.showEvalBar == showEvalBar &&
+      other.animation == animation &&
       other.whiteOutline == whiteOutline &&
       other.blackOutline == blackOutline &&
       other.background == background;
@@ -251,6 +310,7 @@ class Appearance {
         moveSounds,
         showBestMoveArrow,
         showEvalBar,
+        animation,
         whiteOutline,
         blackOutline,
         background,
@@ -313,6 +373,8 @@ class AppearanceNotifier extends Notifier<Appearance> {
 
   void setShowEvalBar(bool on) => _update(state.copyWith(showEvalBar: on));
 
+  void setAnimation(PieceAnimation animation) => _update(state.copyWith(animation: animation));
+
   /// [Appearance.noOutline] turns an outline off; null restores the default.
   void setWhiteOutline(Color? color) => _update(state.copyWith(whiteOutline: () => color));
 
@@ -361,7 +423,7 @@ Future<PieceAssets> tintedPieceAssets(
     final isWhite = kind.side == Side.white;
     final color = isWhite ? white : black;
     final outline = isWhite ? whiteOutline : blackOutline;
-    final tinted = color != (isWhite ? Appearance.defaultWhitePieces : Appearance.defaultBlackPieces);
+    final tinted = color != (isWhite ? Appearance.untintedWhite : Appearance.untintedBlack);
     if (!tinted && outline == null) {
       assets[kind] = asset;
       continue;

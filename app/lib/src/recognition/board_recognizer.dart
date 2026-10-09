@@ -2,6 +2,7 @@ import 'dart:isolate';
 
 import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 
 import 'screenshot_vision.dart';
@@ -27,6 +28,10 @@ const templateSets = [
   PieceSet.geo,
   PieceSet.ink,
   PieceSet.bubble,
+  PieceSet.wood,
+  PieceSet.glass,
+  PieceSet.bold,
+  PieceSet.eightbit,
 ];
 
 List<PieceTemplate>? _templates;
@@ -49,9 +54,17 @@ Future<List<PieceTemplate>> loadPieceTemplates() async {
 }
 
 /// Reads the chess position from a screenshot, off the UI thread.
+/// [pieceColors]: colours this app draws its pieces in (see
+/// [recognizeScreenshot]'s pieceHues), so its own screenshots read back.
 ///
 /// Throws [RecognitionException] if no board is found.
-Future<RecognizedBoard> recognizeBoard(Uint8List imageBytes) async {
+Future<RecognizedBoard> recognizeBoard(Uint8List imageBytes, {List<Color> pieceColors = const []}) async {
   final templates = await loadPieceTemplates();
-  return Isolate.run(() => recognizeScreenshot(imageBytes, templates));
+  final hues = [
+    for (final c in pieceColors)
+      // Only clearly coloured ones: greys have no meaningful hue.
+      if (HSVColor.fromColor(c).saturation >= 0.2 && HSVColor.fromColor(c).value >= 0.15)
+        HSVColor.fromColor(c).hue,
+  ];
+  return Isolate.run(() => recognizeScreenshot(imageBytes, templates, pieceHues: hues));
 }

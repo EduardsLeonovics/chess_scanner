@@ -128,15 +128,16 @@ class _SideChooser extends ConsumerWidget {
       final name = side == Side.white ? 'White' : 'Black';
       return Expanded(
         child: Card(
+          margin: EdgeInsets.zero,
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: count == 0 ? null : () => onPick(side),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  PieceWidget(piece: Piece(color: side, role: Role.king), size: 72, pieceAssets: assets),
+                  PieceWidget(piece: Piece(color: side, role: Role.king), size: 88, pieceAssets: assets),
                   const SizedBox(height: 12),
                   Text('Openings as $name', style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
                   const SizedBox(height: 4),
@@ -149,17 +150,23 @@ class _SideChooser extends ConsumerWidget {
       );
     }
 
-    return ListView(
+    // White above Black, together filling the page.
+    return Padding(
       padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          'Study the openings you actually play: what your opponents answer most, '
-          'where you went wrong, and the best line to play next time.',
-          style: theme.textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 16),
-        Row(children: [card(Side.white), const SizedBox(width: 12), card(Side.black)]),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Study the openings you actually play: what your opponents answer most, '
+            'where you went wrong, and the best line to play next time.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          card(Side.white),
+          const SizedBox(height: 12),
+          card(Side.black),
+        ],
+      ),
     );
   }
 }

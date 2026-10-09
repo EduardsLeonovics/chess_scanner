@@ -254,7 +254,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
     setState(() => _recognizing = true);
     final RecognizedBoard result;
     try {
-      result = await recognizeBoard(bytes);
+      result = await recognizeBoard(bytes, pieceColors: ref.read(appearanceProvider).pieceColors);
       ref.read(usageStatsProvider).track(UsageEvent.scanRead);
     } on RecognitionException catch (e) {
       ref.read(usageStatsProvider).track(UsageEvent.scanFailed);
@@ -370,6 +370,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
     final boardSettings = ChessboardSettings(
       colorScheme: appearance.colorScheme,
       pieceAssets: pieceAssets,
+      animationDuration: appearance.animation.duration,
     );
 
     return Scaffold(

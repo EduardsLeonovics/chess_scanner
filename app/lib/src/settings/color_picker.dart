@@ -1,14 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-const _swatches = [
-  Color(0xFFFFFFFF), Color(0xFFF0D9B6), Color(0xFFEEEED2), Color(0xFFDEE3E6),
-  Color(0xFFE8E0C8), Color(0xFFFFE0B2), Color(0xFFB58863), Color(0xFF769656),
-  Color(0xFF8CA2AD), Color(0xFF4B7399), Color(0xFF7D4A8D), Color(0xFFB33430),
-  Color(0xFFD4A017), Color(0xFF3C3C3C), Color(0xFF1E2A38), Color(0xFF000000),
-];
-
-/// Lets the user pick any colour: quick swatches, or hue, saturation and
-/// brightness sliders. Returns null if cancelled.
+/// Lets the user pick any colour from a colour wheel (hue around it,
+/// saturation from the centre out), with saturation and brightness
+/// sliders. Returns null if cancelled.
 Future<Color?> showColorPicker(
   BuildContext context, {
   required String title,
@@ -46,7 +42,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 120),
-              height: 56,
+              height: 44,
               decoration: BoxDecoration(
                 color: _color,
                 borderRadius: BorderRadius.circular(12),
@@ -54,35 +50,21 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final swatch in _swatches)
-                  _Swatch(
-                    color: swatch,
-                    selected: swatch.toARGB32() == _color.toARGB32(),
-                    onTap: () => setState(() => _hsv = HSVColor.fromColor(swatch)),
-                  ),
-              ],
+            Center(
+              child: ColorWheel(
+                hsv: _hsv,
+                onChanged: (hsv) => setState(() => _hsv = hsv),
+              ),
             ),
             const SizedBox(height: 12),
             _labeledSlider(
-              'Hue',
-              _hsv.hue,
-              360,
-              (v) => setState(() => _hsv = _hsv.withHue(v)),
-            ),
-            _labeledSlider(
               'Saturation',
               _hsv.saturation,
-              1,
               (v) => setState(() => _hsv = _hsv.withSaturation(v)),
             ),
             _labeledSlider(
               'Brightness',
               _hsv.value,
-              1,
               (v) => setState(() => _hsv = _hsv.withValue(v)),
             ),
           ],
@@ -95,41 +77,107 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     );
   }
 
-  Widget _labeledSlider(String label, double value, double max, ValueChanged<double> onChanged) {
+  Widget _labeledSlider(String label, double value, ValueChanged<double> onChanged) {
     return Row(
       children: [
         SizedBox(width: 84, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
         Expanded(
-          child: Slider(value: value.clamp(0, max), max: max, onChanged: onChanged),
+          child: Slider(value: value.clamp(0, 1), onChanged: onChanged),
         ),
       ],
     );
   }
 }
 
-class _Swatch extends StatelessWidget {
-  const _Swatch({required this.color, required this.selected, required this.onTap});
+/// A colour wheel: the angle picks the hue, the distance from the centre
+/// the saturation (white in the middle). Tap or drag to choose; brightness
+/// is kept and shown by darkening the wheel.
+class ColorWheel extends StatelessWidget {
+  const ColorWheel({super.key, required this.hsv, required this.onChanged, this.size = 220});
 
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
+  final HSVColor hsv;
+  final ValueChanged<HSVColor> onChanged;
+  final double size;
+
+  void _pick(Offset local) {
+    final center = Offset(size / 2, size / 2);
+    final d = local - center;
+    final radius = size / 2;
+    final hue = (math.atan2(d.dy, d.dx) * 180 / math.pi + 360) % 360;
+    final saturation = (d.distance / radius).clamp(0.0, 1.0);
+    onChanged(hsv.withHue(hue).withSaturation(saturation));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? Theme.of(context).colorScheme.primary : const Color(0x33000000),
-            width: selected ? 3 : 1,
-          ),
-        ),
+    return Semantics(
+      label: 'Colour wheel',
+      child: GestureDetector(
+        onPanDown: (e) => _pick(e.localPosition),
+        onPanUpdate: (e) => _pick(e.localPosition),
+        child: CustomPaint(size: Size.square(size), painter: _WheelPainter(hsv)),
       ),
     );
   }
+}
+
+class _WheelPainter extends CustomPainter {
+  _WheelPainter(this.hsv);
+
+  final HSVColor hsv;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    // Hues around the circle, fading to white towards the centre.
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = SweepGradient(colors: [
+          for (var h = 0; h <= 360; h += 60) HSVColor.fromAHSV(1, h % 360 * 1.0, 1, 1).toColor(),
+        ]).createShader(rect),
+    );
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = const RadialGradient(colors: [Color(0xFFFFFFFF), Color(0x00FFFFFF)]).createShader(rect),
+    );
+    // The current brightness darkens the whole wheel.
+    canvas.drawCircle(center, radius, Paint()..color = Color.fromRGBO(0, 0, 0, 1 - hsv.value));
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..color = const Color(0x22000000),
+    );
+
+    // Where the current colour sits.
+    final angle = hsv.hue * math.pi / 180;
+    final at = center + Offset(math.cos(angle), math.sin(angle)) * hsv.saturation * radius;
+    canvas.drawCircle(at, 11, Paint()..color = hsv.toColor());
+    canvas.drawCircle(
+      at,
+      11,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = Colors.white,
+    );
+    canvas.drawCircle(
+      at,
+      12.5,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0x66000000),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_WheelPainter old) => old.hsv != hsv;
 }

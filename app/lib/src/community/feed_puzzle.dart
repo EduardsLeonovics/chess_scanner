@@ -263,6 +263,7 @@ class _FeedPuzzleState extends ConsumerState<FeedPuzzle> with AutomaticKeepAlive
             colorScheme: appearance.colorScheme,
             pieceAssets: pieceAssets,
             enableCoordinates: false,
+            animationDuration: appearance.animation.duration,
           ),
           onMove: (move, {viaDragAndDrop}) => _onUserMove(move),
         ),

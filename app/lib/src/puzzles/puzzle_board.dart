@@ -298,6 +298,7 @@ class _PuzzleBoardState extends ConsumerState<PuzzleBoard> {
           settings: ChessboardSettings(
             colorScheme: appearance.colorScheme,
             pieceAssets: pieceAssets,
+            animationDuration: appearance.animation.duration,
           ),
           onMove: (move, {viaDragAndDrop}) => _onUserMove(move),
         ),

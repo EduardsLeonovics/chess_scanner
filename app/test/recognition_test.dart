@@ -2,8 +2,10 @@ import 'dart:io' as io;
 
 import 'package:chess_scanner/src/recognition/board_recognizer.dart';
 import 'package:chess_scanner/src/recognition/screenshot_vision.dart';
+import 'package:chess_scanner/src/settings/appearance.dart';
 import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
+import 'package:flutter/painting.dart' show HSVColor;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -26,6 +28,7 @@ Future<Uint8List> _screenshot(
   bool blackAtBottom = false,
   Set<String> highlighted = const {},
   bool coordinates = false,
+  img.Color? blackTint,
 }) async {
   light ??= img.ColorRgb8(240, 217, 181);
   dark ??= img.ColorRgb8(181, 136, 99);
@@ -43,8 +46,18 @@ Future<Uint8List> _screenshot(
   for (final entry in set.assets.entries) {
     final data = await rootBundle.load(entry.value.keyName);
     final decoded = img.decodeImage(data.buffer.asUint8List())!;
-    pieceImages[entry.key] = img.copyResize(decoded, width: square, height: square,
+    final piece = img.copyResize(decoded, width: square, height: square,
         interpolation: img.Interpolation.average);
+    if (blackTint != null && entry.key.side == Side.black) {
+      // Like the app's tint: "screen", so the black fill takes the colour.
+      for (final px in piece) {
+        px
+          ..r = px.r + (255 - px.r) * blackTint.r / 255
+          ..g = px.g + (255 - px.g) * blackTint.g / 255
+          ..b = px.b + (255 - px.b) * blackTint.b / 255;
+      }
+    }
+    pieceImages[entry.key] = piece;
   }
 
   for (var row = 0; row < 8; row++) {
@@ -76,8 +89,15 @@ Future<Uint8List> _screenshot(
   return img.encodePng(page);
 }
 
-Future<RecognizedBoard> _recognize(Uint8List bytes) async =>
-    recognizeScreenshot(bytes, await loadPieceTemplates());
+Future<RecognizedBoard> _recognize(Uint8List bytes, {List<Color> pieceColors = const []}) async =>
+    recognizeScreenshot(
+      bytes,
+      await loadPieceTemplates(),
+      pieceHues: [
+        for (final c in pieceColors)
+          if (HSVColor.fromColor(c).saturation >= 0.2) HSVColor.fromColor(c).hue,
+      ],
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -132,6 +152,37 @@ void main() {
       final bytes = io.File('test/fixtures/emulator_start_position.png').readAsBytesSync();
       final result = await _recognize(bytes);
       expect(result.board.fen, Board.standard.fen);
+    });
+
+    // The app's own look: the golden board, every one of ChessHive's sets.
+    final golden = (img.ColorRgb8(0xFF, 0xFD, 0xF5), img.ColorRgb8(0xF2, 0xCC, 0x55));
+    for (final set in [
+      PieceSet.geo,
+      PieceSet.ink,
+      PieceSet.bubble,
+      PieceSet.wood,
+      PieceSet.glass,
+      PieceSet.bold,
+      PieceSet.eightbit,
+    ]) {
+      test("reads ChessHive's ${set.label} pieces on the golden board", () async {
+        final bytes = await _screenshot(_middlegame, set: set, light: golden.$1, dark: golden.$2);
+        // The app passes the set's own colours, as it does when scanning.
+        final result = await _recognize(bytes, pieceColors: pieceSetColors[set] ?? const []);
+        expect(result.board.fen, _middlegame);
+      });
+    }
+
+    test('reads the default look: golden board, golden black pieces', () async {
+      final bytes = await _screenshot(
+        _middlegame,
+        light: golden.$1,
+        dark: golden.$2,
+        blackTint: img.ColorRgb8(0xC9, 0x94, 0x16),
+      );
+      final result = await _recognize(bytes, pieceColors: const Appearance().pieceColors);
+      expect(result.board.fen, _middlegame);
+      expect(result.blackAtBottom, isFalse);
     });
 
     // Real screenshots from the web: different sites, themes and piece sets.
