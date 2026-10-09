@@ -13,12 +13,19 @@ Raise these with the user until each is done, then delete its line:
   source of every released version must be available to everyone who gets
   the app. Make the repo public (or publish tagged source per release)
   before distributing any build outside the team.
-- **Support email:** none exists. Create one and set
-  `AppInfo.supportEmail` (`app/lib/src/app_info.dart`); Play also needs it.
-- **Release signing key:** release builds are signed with the debug (test)
-  key because `app/android/key.properties` doesn't exist. Create an upload
-  key, enrol in Play App Signing, and put its SHA-256 fingerprint in
-  `share_site/.well-known/assetlinks.json`.
+- **Rename follow-ups (ChessGeek → ChessHive):** the URL scheme is now
+  `chesshive://`, so in Supabase → Authentication → URL Configuration add
+  `chesshive://login-callback` to the redirect URLs (keep the old one until
+  old builds are gone). Share links and legal pages still point at
+  `eduardsleonovics.github.io/chesshive/`; move them to chesshive.app once
+  it hosts `share_site/`.
+- **Play App Signing:** the upload key exists (keystore in
+  `C:\Users\Eduards\keys\`, passwords in the git-ignored
+  `app/android/key.properties`) and its fingerprint is in
+  `share_site/.well-known/assetlinks.json`. Still to do: back the keystore
+  and passwords up off this PC, enrol in Play App Signing, and add Play's
+  app signing key SHA-256 (Play Console → App integrity) to assetlinks.json
+  next to the upload key's.
 - **AdMob ids:** the app uses Google's test ids (AndroidManifest.xml,
   ios/Runner/Info.plist, `AdsConfig` in `app/lib/src/ads/ad_banner.dart`).
   Create the AdMob app and banner units and swap them in before release.
@@ -27,17 +34,18 @@ Raise these with the user until each is done, then delete its line:
   consent for your own use" with TCF purposes 1, 8 and 9 — the app's usage
   statistics read those (`app/lib/src/privacy/consent.dart`).
 - **Production email:** Supabase's built-in mailer only sends a few
-  emails an hour. Get a domain, set up Resend (or similar) as custom SMTP
-  in Supabase, check the reset-password template's link, and raise the
+  emails an hour. Set up Resend (or similar) as custom SMTP
+  in Supabase for chesshive.app, check the reset-password template's link, and raise the
   email rate limit.
-- **Privacy policy:** drafted at `share_site/chessgeek/privacy/index.html`;
-  fill in the highlighted placeholders (name/company, address, support
-  email, Supabase region, date) and publish it. **Terms of Use:** not
-  written yet; Play requires them for the community.
+- **Privacy policy and Terms of Use:** drafted at
+  `share_site/chesshive/privacy/index.html` and `.../terms/index.html`;
+  fill in the highlighted placeholders (name/company, address, Supabase
+  region, email provider, date) and publish both. Have
+  someone qualified read them.
 
 ## Project
 
-ChessGeek: a Flutter app (Android first; iOS builds need macOS) that reads a
+ChessHive: a Flutter app (Android first; iOS builds need macOS) that reads a
 chess position from a camera photo or screenshot, analyzes it with on-device
 Stockfish, and trains the user on puzzles found in their own Lichess /
 Chess.com games.
@@ -127,7 +135,7 @@ Chess.com games.
   (`puzzle_store.dart`), written only when that part changes. Changing a
   stored format needs a migration, on the phone and for backups already
   in the `libraries` table (`LibraryBackupData.fromRow`).
-- Connecting Lichess / Chess.com and loading games need a ChessGeek
+- Connecting Lichess / Chess.com and loading games need a ChessHive
   sign-in (`signedInProvider`). Signing out or deleting the account goes
   through `LibraryBackup`, which removes the library from the phone.
 

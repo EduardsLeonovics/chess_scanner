@@ -1,4 +1,4 @@
-"""Draws the ChessGeek app icon: an exact 8x8 board under a magnifying glass.
+"""Draws the ChessHive app icon: an exact 8x8 board under a magnifying glass.
 
 The geometry is redrawn from scratch; the knight silhouette is taken from
 the original artwork (tool/icon_source.png). Outputs:

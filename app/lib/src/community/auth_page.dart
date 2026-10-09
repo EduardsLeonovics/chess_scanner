@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app_info.dart';
 import 'community_models.dart';
 import 'community_repository.dart';
 
-/// Sign in, or create a ChessGeek account. Pops with true once signed in.
+/// Sign in, or create a ChessHive account. Pops with true once signed in.
 class AuthPage extends ConsumerStatefulWidget {
   const AuthPage({super.key, this.createAccount = false});
 
@@ -208,8 +209,10 @@ class _AuthPageState extends ConsumerState<AuthPage> {
             if (_creating) ...[
               const SizedBox(height: 16),
               Text(
-                'Your username, posts and comments are visible to other ChessGeek users. '
-                'Be kind: posts that are reported for abuse are removed.',
+                'Your username, posts and comments are visible to other ChessHive users. '
+                'Be kind: posts that are reported for abuse are removed.\n\n'
+                'By creating an account you agree to the Terms of Use '
+                '(${AppInfo.termsUrl}) and the Privacy Policy (${AppInfo.privacyUrl}).',
                 style: theme.textTheme.bodySmall,
               ),
             ],

@@ -30,7 +30,7 @@ final communityUserProvider = StreamProvider<User?>((ref) {
   return repo.userChanges;
 });
 
-/// Whether the user is signed in to their ChessGeek account. Connecting
+/// Whether the user is signed in to their ChessHive account. Connecting
 /// Lichess / Chess.com and loading games need it, so the games' analysis
 /// is kept in the account (see `backup/library_backup.dart`).
 final signedInProvider = Provider<bool>((ref) => ref.watch(communityUserProvider).value != null);
@@ -77,7 +77,7 @@ class CommunityRepository {
       throw const CommunityException('The server took too long. Try again.');
     } catch (e) {
       // Usually no connection (SocketException / ClientException).
-      throw const CommunityException('Couldn\'t reach ChessGeek. Check your connection.');
+      throw const CommunityException('Couldn\'t reach ChessHive. Check your connection.');
     }
   }
 

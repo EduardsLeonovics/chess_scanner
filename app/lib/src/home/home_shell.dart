@@ -112,7 +112,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         icon: const Icon(Icons.bug_report_outlined),
         title: const Text('Something went wrong'),
         content: const Text(
-          'ChessGeek ran into a problem last time. Sending the crash report helps '
+          'ChessHive ran into a problem last time. Sending the crash report helps '
           'fix it. It contains the error, the app version and your phone\'s system '
           'version, and no personal data beyond what\'s in the error itself.',
         ),

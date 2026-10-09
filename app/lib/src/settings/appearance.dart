@@ -37,7 +37,7 @@ final boardThemes = [
 ];
 
 /// The piece styles offered in settings: widely used Lichess sets, and
-/// ChessGeek's own (all licensed for commercial use; see
+/// ChessHive's own (all licensed for commercial use; see
 /// third_party/chessground/LICENSES.md).
 const pieceStyles = [
   (PieceSet.cburnett, 'Classic'),

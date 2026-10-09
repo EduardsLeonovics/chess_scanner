@@ -265,9 +265,20 @@ class AboutSection extends StatelessWidget {
               },
             ),
             _ActionRow(
+              icon: Icons.gavel_outlined,
+              title: 'Terms of use',
+              subtitle: '${AppInfo.termsUrl}\nTap to copy the link',
+              onTap: () {
+                Clipboard.setData(const ClipboardData(text: AppInfo.termsUrl));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Link copied')),
+                );
+              },
+            ),
+            _ActionRow(
               icon: Icons.description_outlined,
               title: 'Open-source licences',
-              subtitle: 'Stockfish, chessground, dartchess and the other parts ChessGeek is built on',
+              subtitle: 'Stockfish, chessground, dartchess and the other parts ChessHive is built on',
               onTap: () => showLicensePage(
                 context: context,
                 applicationName: AppInfo.name,

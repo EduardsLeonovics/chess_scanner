@@ -1,4 +1,4 @@
-"""Draws ChessGeek's own piece sets (Geo, Ink, Bubble) for chessground.
+"""Draws ChessHive's own piece sets (Geo, Ink, Bubble) for chessground.
 
 Every piece is built from simple shapes in a unit square (x right, y down),
 rendered at 1024 px with an outline, then saved as WebP at chessground's

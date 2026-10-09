@@ -20,7 +20,7 @@ abstract final class CommunityConfig {
   );
 
   /// Where the sign-up confirmation email sends the user back to: the app.
-  static const authRedirect = 'chessgeek://login-callback';
+  static const authRedirect = 'chesshive://login-callback';
 
   static bool get configured => url.isNotEmpty && publishableKey.isNotEmpty;
 

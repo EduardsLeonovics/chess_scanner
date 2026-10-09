@@ -187,11 +187,10 @@ class CrashLog extends ChangeNotifier {
 
   /// Opens the share sheet with the reports. [origin] anchors the sheet on iPad.
   Future<void> share({Rect? origin}) async {
-    final email = AppInfo.supportEmail;
     final text = await format();
     await SharePlus.instance.share(ShareParams(
       subject: '${AppInfo.name} crash report',
-      text: email == null ? text : 'To: $email\n\n$text',
+      text: 'To: ${AppInfo.supportEmail}\n\n$text',
       sharePositionOrigin: origin,
     ));
   }

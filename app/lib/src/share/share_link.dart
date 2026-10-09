@@ -10,7 +10,7 @@ Future<void> sharePositionLink(String fen, BuildContext buttonContext) async {
   final link = positionLink(fen);
   await SharePlus.instance.share(ShareParams(
     subject: 'Chess position',
-    text: 'Analyze this position in ChessGeek: $link',
+    text: 'Analyze this position in ChessHive: $link',
     sharePositionOrigin: shareOrigin(buttonContext),
   ));
 }

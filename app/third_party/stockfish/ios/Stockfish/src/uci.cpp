@@ -467,7 +467,7 @@ std::uint64_t UCIEngine::perft(const Search::LimitsType& limits) {
 
 namespace {
 
-// ChessGeek patch: Stockfish trusts the FEN it is given, and a board with
+// ChessHive patch: Stockfish trusts the FEN it is given, and a board with
 // more pieces than a game can reach (e.g. a misread scan) makes NNUE write
 // past its fixed-size feature lists and crash the whole app. Accept only
 // boards a real game could reach: 8 ranks of 8 squares, one king each,

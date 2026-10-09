@@ -16,7 +16,7 @@ import '../settings/appearance.dart';
 import '../skills/skill_stats.dart';
 
 /// The user's linked accounts and game library as stored in their
-/// ChessGeek account (the `libraries` table in backend/supabase/schema.sql):
+/// ChessHive account (the `libraries` table in backend/supabase/schema.sql):
 /// everything but the queue of games still to analyze, which is downloaded
 /// again when needed.
 @immutable
@@ -165,7 +165,7 @@ enum BackupStatus {
 
 final libraryBackupProvider = NotifierProvider<LibraryBackup, BackupStatus>(LibraryBackup.new);
 
-/// Keeps the signed-in user's library in their ChessGeek account.
+/// Keeps the signed-in user's library in their ChessHive account.
 ///
 /// When they sign in (or the app starts signed in), the account's copy is
 /// merged with the phone's (see [mergeBackups]) and the result kept on

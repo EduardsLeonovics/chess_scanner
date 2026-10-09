@@ -9,7 +9,7 @@ import 'community_repository.dart';
 import 'compose_post_page.dart';
 import 'post_puzzle.dart';
 
-/// "Share": post the position to the ChessGeek community feed (with your
+/// "Share": post the position to the ChessHive community feed (with your
 /// own text), or send a link through any app as before.
 ///
 /// [linkFen] is the position the link opens; [makeDraft] builds the post's
@@ -31,7 +31,7 @@ Future<void> showShareChoice(
         children: [
           ListTile(
             leading: const Icon(Icons.forum_outlined),
-            title: const Text('Post to the ChessGeek community'),
+            title: const Text('Post to the ChessHive community'),
             subtitle: Text(community
                 ? 'Write something about it; others solve it in their feed'
                 : 'The community isn\'t available in this version'),
@@ -41,7 +41,7 @@ Future<void> showShareChoice(
           ListTile(
             leading: const Icon(Icons.link),
             title: const Text('Share a link'),
-            subtitle: const Text('Send it through any app; opens in ChessGeek'),
+            subtitle: const Text('Send it through any app; opens in ChessHive'),
             onTap: () => Navigator.pop(context, _Share.link),
           ),
           const SizedBox(height: 8),

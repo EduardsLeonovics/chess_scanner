@@ -7,19 +7,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../board/board_setup.dart';
 
-/// Shared positions are links to a small web page. With ChessGeek
+/// Shared positions are links to a small web page. With ChessHive
 /// installed, Android opens them in the app (App Links); otherwise the page
 /// shows the position and sends the visitor to the Play Store. The page
 /// itself also opens the app through the [appScheme] link.
 abstract final class PositionLinks {
   static const host = 'eduardsleonovics.github.io';
-  static const path = '/chessgeek/p/';
+  static const path = '/chesshive/p/';
 
-  /// `chessgeek://position?fen=…`, used by the web page's "Open in app".
-  static const appScheme = 'chessgeek';
+  /// `chesshive://position?fen=…`, used by the web page's "Open in app".
+  static const appScheme = 'chesshive';
 }
 
-/// The link that opens [fen] in ChessGeek.
+/// The link that opens [fen] in ChessHive.
 Uri positionLink(String fen) => Uri.https(PositionLinks.host, PositionLinks.path, {'fen': fen});
 
 /// The position in a link made by [positionLink] (or its app-scheme form),

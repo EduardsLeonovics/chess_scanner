@@ -13,7 +13,7 @@ const _muted = Color(0xFF8A919B);
 const _line = Color(0xFFE6E8EB);
 
 /// "Connect to Lichess" / "Connect to Chess.com", or the connected username
-/// with a disconnect button. Connecting needs a ChessGeek account, which
+/// with a disconnect button. Connecting needs a ChessHive account, which
 /// keeps the games' analysis (see `backup/library_backup.dart`).
 class AccountsSection extends ConsumerWidget {
   const AccountsSection({super.key});
@@ -60,10 +60,10 @@ class AccountsSection extends ConsumerWidget {
           switch ((signedIn, hasServer)) {
             (true, _) => 'Used to turn mistakes from your own games into puzzles. '
                 'Only your public games are read — no password needed.',
-            (false, true) => 'Connect Lichess or Chess.com with a free ChessGeek account. '
+            (false, true) => 'Connect Lichess or Chess.com with a free ChessHive account. '
                 'Your analyzed games and puzzles are saved to it, so they come back '
                 'after a reinstall or on a new phone.',
-            (false, false) => 'Connecting accounts needs the ChessGeek server, which this '
+            (false, false) => 'Connecting accounts needs the ChessHive server, which this '
                 'version of the app doesn\'t have.',
           },
           style: muted,
@@ -74,9 +74,9 @@ class AccountsSection extends ConsumerWidget {
 
   static String? _backupLabel(BackupStatus status) => switch (status) {
         BackupStatus.off => null,
-        BackupStatus.syncing => 'Saving to your ChessGeek account…',
-        BackupStatus.saved => 'Saved to your ChessGeek account.',
-        BackupStatus.failed => 'Not saved to your ChessGeek account yet. '
+        BackupStatus.syncing => 'Saving to your ChessHive account…',
+        BackupStatus.saved => 'Saved to your ChessHive account.',
+        BackupStatus.failed => 'Not saved to your ChessHive account yet. '
             'It\'s tried again on the next change.',
       };
 }

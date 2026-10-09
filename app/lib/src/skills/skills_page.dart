@@ -500,7 +500,7 @@ class _Empty extends StatelessWidget {
                 ),
               )
             : (
-                'Sign in to ChessGeek and connect your Lichess or Chess.com account to see '
+                'Sign in to ChessHive and connect your Lichess or Chess.com account to see '
                     'your skill profile.',
                 FilledButton.icon(
                   onPressed: () => Navigator.of(context).push(settingsRoute()),

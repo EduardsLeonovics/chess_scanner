@@ -1,4 +1,4 @@
--- ChessGeek community: accounts, puzzle posts, comments, follows.
+-- ChessHive community: accounts, puzzle posts, comments, follows.
 --
 -- Run once in the Supabase dashboard (SQL Editor -> New query -> paste ->
 -- Run) on a fresh project. Safe to re-run: everything is created only if

@@ -1,5 +1,5 @@
 name: chess_scanner
-description: "ChessGeek: scan chess positions, analyze them with Stockfish and train on puzzles from your own games."
+description: "ChessHive: scan chess positions, analyze them with Stockfish and train on puzzles from your own games."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -34,7 +34,7 @@ dependencies:
   stockfish:
     path: third_party/stockfish
   # Vendored: only the piece sets licensed for commercial use, plus
-  # ChessGeek's own (see third_party/chessground/LICENSES.md).
+  # ChessHive's own (see third_party/chessground/LICENSES.md).
   chessground:
     path: third_party/chessground
   dartchess: ^0.14.0

@@ -1,4 +1,4 @@
-# ChessGeek community backend
+# ChessHive community backend
 
 Accounts, puzzle posts, comments, follows, blocks and reports live in a
 [Supabase](https://supabase.com) project. The app talks to it directly; the
@@ -11,7 +11,7 @@ Edge Function (`functions/`).
 1. Create a project at supabase.com (the free tier is enough to start).
 2. **SQL Editor → New query**: paste all of `schema.sql`, run it.
 3. **Authentication → URL Configuration → Redirect URLs**: add
-   `chessgeek://login-callback` (sign-up confirmation and password-reset
+   `chesshive://login-callback` (sign-up confirmation and password-reset
    links open the app through it).
 4. **Authentication → Sign In / Providers → Email**: leave "Confirm email"
    on. Supabase's built-in mailer only sends a few emails per hour, which

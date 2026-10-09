@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <application
-        android:label="ChessGeek"
+        android:label="ChessHive"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <!-- AdMob app id. This is Google's test id; replace it with the app's
@@ -21,7 +21,7 @@
              (lib/src/puzzles/background_work.dart). Must be white on
              transparent: Android flattens it to a silhouette. -->
         <meta-data
-            android:name="com.chessgeek.notification_icon"
+            android:name="com.chesshive.notification_icon"
             android:resource="@drawable/ic_stat_notification" />
         <activity
             android:name=".MainActivity"
@@ -55,13 +55,13 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="eduardsleonovics.github.io" android:pathPrefix="/chessgeek/p" />
+                <data android:scheme="https" android:host="eduardsleonovics.github.io" android:pathPrefix="/chesshive/p" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="chessgeek" android:host="position" />
+                <data android:scheme="chesshive" android:host="position" />
             </intent-filter>
             <!-- Community sign-up confirmation and password reset links
                  (lib/src/community/community_config.dart). -->
@@ -69,7 +69,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="chessgeek" android:host="login-callback" />
+                <data android:scheme="chesshive" android:host="login-callback" />
             </intent-filter>
         </activity>
         <service

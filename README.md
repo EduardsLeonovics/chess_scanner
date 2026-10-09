@@ -1,4 +1,4 @@
-# ChessGeek
+# ChessHive
 
 Cross-platform (Android + iOS) app: photograph a physical chess board or upload a
 screenshot, get the position recognized automatically, then analyze it with an
@@ -68,7 +68,7 @@ real 3D photos need a trained model and are the hard part.
 
 Copyright (C) 2026 Eduards Leonovics
 
-ChessGeek is free software: you can redistribute it and/or modify it under the
+ChessHive is free software: you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version. See [LICENSE](LICENSE) for the full text.
@@ -77,7 +77,7 @@ It has to be: the app ships Stockfish, chessground and dartchess, which are all
 GPLv3. Anyone who gets the app must be able to get this source code.
 
 As permitted by section 7(e) of the GPL, no rights are granted under
-trademark law to the name "ChessGeek" or its logo: modified versions must be
+trademark law to the name "ChessHive" or its logo: modified versions must be
 published under a different name and icon.
 
-ChessGeek is not affiliated with or endorsed by Lichess or Chess.com.
+ChessHive is not affiliated with or endorsed by Lichess or Chess.com.

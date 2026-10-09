@@ -82,7 +82,7 @@ class _PuzzlesPageState extends ConsumerState<PuzzlesPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Loading games needs a ChessGeek account: their analysis is kept there.
+    // Loading games needs a ChessHive account: their analysis is kept there.
     final connected = ref.watch(accountsProvider).any && ref.watch(signedInProvider);
     final library = ref.watch(puzzleLibraryProvider);
     final categories = ref.watch(puzzleCategoriesProvider);
@@ -283,7 +283,7 @@ class _EmptyState extends StatelessWidget {
       (_, _, true) when !hasPuzzles => ('Puzzles will appear here as your games are analyzed.', null),
       (_, true, _) => ('No puzzles in these categories yet.', null),
       (false, _, _) => (
-          'Sign in to ChessGeek and connect your Lichess or Chess.com account to turn '
+          'Sign in to ChessHive and connect your Lichess or Chess.com account to turn '
               'the moments you missed in your own games into puzzles.',
           FilledButton.icon(
             onPressed: () => Navigator.of(context).push(settingsRoute()),

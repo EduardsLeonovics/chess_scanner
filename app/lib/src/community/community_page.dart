@@ -9,7 +9,7 @@ import 'feed_list.dart';
 import 'post_alerts.dart';
 import 'post_card.dart';
 
-/// The Community tab: a feed of puzzles posted by ChessGeek users, solved
+/// The Community tab: a feed of puzzles posted by ChessHive users, solved
 /// right in the feed. "For you" has everyone's posts, "Following" the
 /// people you follow. Signed out, it invites you to join.
 class CommunityPage extends ConsumerStatefulWidget {
@@ -78,7 +78,7 @@ class _CommunityPageState extends ConsumerState<CommunityPage> {
       return const _Message(
         icon: Icons.cloud_off_outlined,
         title: 'Community unavailable',
-        text: 'This version of ChessGeek isn\'t connected to the community server.',
+        text: 'This version of ChessHive isn\'t connected to the community server.',
       );
     }
     final user = ref.watch(communityUserProvider);
@@ -119,7 +119,7 @@ class _Feed extends ConsumerWidget {
             FeedList(
               load: (before) => repo.feed(before: before),
               emptyMessage: 'No posts yet. Be the first: share a scanned position or one of '
-                  'your puzzles and choose "Post to the ChessGeek community".',
+                  'your puzzles and choose "Post to the ChessHive community".',
             ),
             FeedList(
               load: (before) => repo.feed(following: true, before: before),
@@ -152,7 +152,7 @@ class _Welcome extends StatelessWidget {
             children: [
               Icon(Icons.forum_outlined, size: 56, color: theme.colorScheme.primary),
               const SizedBox(height: 16),
-              Text('Join the ChessGeek community', style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
+              Text('Join the ChessHive community', style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
                 'Solve puzzles other players post, share positions from your own games and '

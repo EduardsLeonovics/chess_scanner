@@ -237,7 +237,7 @@ class _Empty extends StatelessWidget {
                 FilledButton.icon(onPressed: onLoad, icon: const Icon(Icons.search), label: const Text('Load my games')),
               )
             : (
-                'Sign in to ChessGeek and connect your Lichess or Chess.com account to '
+                'Sign in to ChessHive and connect your Lichess or Chess.com account to '
                     'study your openings.',
                 FilledButton.icon(
                   onPressed: () => Navigator.of(context).push(settingsRoute()),

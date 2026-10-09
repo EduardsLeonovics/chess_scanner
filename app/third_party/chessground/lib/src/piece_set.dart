@@ -273,7 +273,7 @@ enum PieceSet {
     PieceKind.whiteKing: AssetImage('$_pieceSetsPath/totoy/wK.webp', package: 'chessground'),
   };
 
-  /// The [PieceAssets] for the 'Geo' piece set (ChessGeek's own).
+  /// The [PieceAssets] for the 'Geo' piece set (ChessHive's own).
   static const PieceAssets geoAssets = {
     PieceKind.blackRook: AssetImage('$_pieceSetsPath/geo/bR.webp', package: 'chessground'),
     PieceKind.blackPawn: AssetImage('$_pieceSetsPath/geo/bP.webp', package: 'chessground'),
@@ -289,7 +289,7 @@ enum PieceSet {
     PieceKind.whiteKing: AssetImage('$_pieceSetsPath/geo/wK.webp', package: 'chessground'),
   };
 
-  /// The [PieceAssets] for the 'Ink' piece set (ChessGeek's own).
+  /// The [PieceAssets] for the 'Ink' piece set (ChessHive's own).
   static const PieceAssets inkAssets = {
     PieceKind.blackRook: AssetImage('$_pieceSetsPath/ink/bR.webp', package: 'chessground'),
     PieceKind.blackPawn: AssetImage('$_pieceSetsPath/ink/bP.webp', package: 'chessground'),
@@ -305,7 +305,7 @@ enum PieceSet {
     PieceKind.whiteKing: AssetImage('$_pieceSetsPath/ink/wK.webp', package: 'chessground'),
   };
 
-  /// The [PieceAssets] for the 'Bubble' piece set (ChessGeek's own).
+  /// The [PieceAssets] for the 'Bubble' piece set (ChessHive's own).
   static const PieceAssets bubbleAssets = {
     PieceKind.blackRook: AssetImage('$_pieceSetsPath/bubble/bR.webp', package: 'chessground'),
     PieceKind.blackPawn: AssetImage('$_pieceSetsPath/bubble/bP.webp', package: 'chessground'),

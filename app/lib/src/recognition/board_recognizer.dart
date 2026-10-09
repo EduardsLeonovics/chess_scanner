@@ -9,7 +9,7 @@ import 'screenshot_vision.dart';
 export 'screenshot_vision.dart' show RecognitionException, RecognizedBoard;
 
 /// Piece sets used as shape references: every bundled set with a classic
-/// look (novelty sets like pixel and letter are left out), plus ChessGeek's
+/// look (novelty sets like pixel and letter are left out), plus ChessHive's
 /// own so screenshots of this app read back.
 const templateSets = [
   PieceSet.cburnett,

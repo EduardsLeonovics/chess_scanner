@@ -19,7 +19,7 @@ Future<SharedPreferences> _pumpApp(WidgetTester tester, {bool signedIn = false})
       crashLogProvider.overrideWithValue(CrashLog(prefs)),
       if (signedIn) signedInProvider.overrideWithValue(true),
     ],
-    child: const ChessGeekApp(),
+    child: const ChessHiveApp(),
   ));
   await tester.pump();
   return prefs;
@@ -124,17 +124,17 @@ void main() {
 
     await tester.tap(find.byTooltip('Share position'));
     await tester.pumpAndSettle();
-    expect(find.text('Post to the ChessGeek community'), findsOneWidget);
+    expect(find.text('Post to the ChessHive community'), findsOneWidget);
     expect(find.text('Share a link'), findsOneWidget);
     // Without a community server the internal option is off.
     final post = tester.widget<ListTile>(
-      find.ancestor(of: find.text('Post to the ChessGeek community'), matching: find.byType(ListTile)),
+      find.ancestor(of: find.text('Post to the ChessHive community'), matching: find.byType(ListTile)),
     );
     expect(post.enabled, isFalse);
   });
 
   testWidgets('settings change and remember the board theme', (tester) async {
-    // Connecting accounts needs a ChessGeek sign-in.
+    // Connecting accounts needs a ChessHive sign-in.
     final prefs = await _pumpApp(tester, signedIn: true);
 
     await tester.tap(find.byTooltip('Settings'));

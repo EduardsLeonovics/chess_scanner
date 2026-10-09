@@ -41,7 +41,7 @@ Future<void> main() async {
                 'shapes by flugsio (CC BY-SA 4.0); kiwen-suwi by neverRare, firi by James Faure and '
                 'totoy by Kosal Sen (CC BY 4.0, creativecommons.org/licenses/by/4.0); rhosgfx by '
                 'RhosGFX (CC0). Board images by the lila authors and pirouetti (AGPLv3+). '
-                'The Geo, Ink and Bubble sets are ChessGeek\'s own (GPLv3).',
+                'The Geo, Ink and Bubble sets are ChessHive\'s own (GPLv3).',
           ),
           LicenseEntryWithLineBreaks(
             ['lichess-org/chess-openings'],
@@ -54,7 +54,7 @@ Future<void> main() async {
         sharedPreferencesProvider.overrideWithValue(prefs),
         crashLogProvider.overrideWithValue(crashLog!),
       ],
-      child: const ChessGeekApp(),
+      child: const ChessHiveApp(),
     ));
   }, (error, stack) {
     crashLog?.record(error, stack, source: 'async');
@@ -62,8 +62,8 @@ Future<void> main() async {
   });
 }
 
-class ChessGeekApp extends ConsumerWidget {
-  const ChessGeekApp({super.key});
+class ChessHiveApp extends ConsumerWidget {
+  const ChessHiveApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

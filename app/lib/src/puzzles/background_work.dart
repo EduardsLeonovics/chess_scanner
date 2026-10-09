@@ -19,7 +19,7 @@ abstract final class BackgroundWork {
   /// White-on-transparent status-bar icon; the launcher icon would show as
   /// a solid square. Declared as meta-data in AndroidManifest.xml.
   static const _icon = NotificationIcon(
-    metaDataName: 'com.chessgeek.notification_icon',
+    metaDataName: 'com.chesshive.notification_icon',
     backgroundColor: Color(0xFF49B0FD),
   );
   static VoidCallback? _onStop;

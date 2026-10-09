@@ -1,7 +1,7 @@
 # Piece set and board image licences
 
 This is a vendored copy of [chessground](https://github.com/lichess-org/flutter-chessground)
-10.3.0 (GPL-3.0). ChessGeek shows ads, so every piece set licensed for
+10.3.0 (GPL-3.0). ChessHive shows ads, so every piece set licensed for
 non-commercial use only, or with no clear licence, has been removed (alpha,
 anarcandy, california, caliente, cardinal, chess7, cooke, companion, disguised,
 dubrovny, fresca, gioco, governor, horsey, icpieces, kosal, leipzig, maestro,
@@ -24,7 +24,7 @@ Licences per Lichess's COPYING.md (https://github.com/lichess-org/lila/blob/mast
 | firi | James Faure | CC BY 4.0 |
 | totoy | Kosal Sen | CC BY 4.0 |
 | rhosgfx | RhosGFX | CC0 1.0 |
-| geo, ink, bubble | ChessGeek (drawn by `app/tool/make_piece_sets.py`) | GPL-3.0, with the app |
+| geo, ink, bubble | ChessHive (drawn by `app/tool/make_piece_sets.py`) | GPL-3.0, with the app |
 | Board images | lila authors & pirouetti | AGPLv3+ |
 
 Before adding a piece set or board image, check its licence allows

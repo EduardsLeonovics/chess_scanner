@@ -1,10 +1,10 @@
 # Share-link site
 
-ChessGeek's "Share position" button makes links like
-`https://eduardsleonovics.github.io/chessgeek/p/?fen=...`. Android opens
+ChessHive's "Share position" button makes links like
+`https://eduardsleonovics.github.io/chesshive/p/?fen=...`. Android opens
 these links straight in the app once it has verified that the site trusts
 the app. Without the app installed, the link shows this page instead: a
-picture of the position, an "Open in ChessGeek" button, and a Google Play
+picture of the position, an "Open in ChessHive" button, and a Google Play
 link.
 
 This folder is the content for the GitHub user site `EduardsLeonovics.github.io`.
@@ -16,19 +16,19 @@ must go in that repo, not in `chess_scanner`.
 1. **Release key.** Create one and keep it safe, because the Play Store
    requires the same key for every update:
    ```
-   keytool -genkey -v -keystore %USERPROFILE%\chessgeek-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias chessgeek
+   keytool -genkey -v -keystore %USERPROFILE%\keys\chesshive-upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
    ```
    Then create `app/android/key.properties` (git ignores it):
    ```
-   storeFile=C:/Users/Eduards/chessgeek-release.jks
+   storeFile=C:/Users/Eduards/keys/chesshive-upload-keystore.jks
    storePassword=...
-   keyAlias=chessgeek
+   keyAlias=upload
    keyPassword=...
    ```
 2. **Fingerprint.** Get the key's SHA-256 and put it in
    `.well-known/assetlinks.json`, in place of `REPLACE_WITH_RELEASE_KEY_SHA256`:
    ```
-   keytool -list -v -keystore %USERPROFILE%\chessgeek-release.jks -alias chessgeek
+   keytool -list -v -keystore %USERPROFILE%\keys\chesshive-upload-keystore.jks -alias upload
    ```
    Once the app is on Google Play with Play App Signing, also add the
    *app signing* key's SHA-256 from Play Console › Setup › App signing.
@@ -45,5 +45,5 @@ must go in that repo, not in `chess_scanner`.
    ```
    The domain should show as `verified`.
 
-Until then, links still work through the page's "Open in ChessGeek" button,
-which uses the `chessgeek://` scheme.
+Until then, links still work through the page's "Open in ChessHive" button,
+which uses the `chesshive://` scheme.
