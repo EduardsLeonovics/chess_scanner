@@ -11,12 +11,6 @@
         android:label="ChessHive"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        <!-- AdMob app id. This is Google's test id; replace it with the app's
-             own id from the AdMob console before release (the app crashes at
-             launch without one). Ad unit ids: lib/src/ads/ad_banner.dart. -->
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
         <!-- Status-bar icon for the game analysis notification
              (lib/src/puzzles/background_work.dart). Must be white on
              transparent: Android flattens it to a silhouette. -->
@@ -55,7 +49,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="eduardsleonovics.github.io" android:pathPrefix="/chesshive/p" />
+                <data android:scheme="https" android:host="chesshive.app" android:pathPrefix="/p/" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

@@ -12,8 +12,8 @@ import '../board/board_setup.dart';
 /// shows the position and sends the visitor to the Play Store. The page
 /// itself also opens the app through the [appScheme] link.
 abstract final class PositionLinks {
-  static const host = 'eduardsleonovics.github.io';
-  static const path = '/chesshive/p/';
+  static const host = 'chesshive.app';
+  static const path = '/p/';
 
   /// `chesshive://position?fen=…`, used by the web page's "Open in app".
   static const appScheme = 'chesshive';

@@ -8,7 +8,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../community/community_config.dart';
 import '../settings/appearance.dart' show sharedPreferencesProvider;
-import 'consent.dart';
 
 /// What the anonymous usage statistics count. Only totals per day reach the
 /// server (see `record_usage` in backend/supabase/schema.sql): no user or
@@ -31,18 +30,26 @@ enum UsageEvent {
   final String id;
 }
 
-/// The user's own switch for the statistics (Settings → Privacy), on top of
-/// any consent the law requires.
+/// The user's consent to the statistics (Settings → Privacy): off until
+/// they turn it on.
 final usageSharingProvider = NotifierProvider<UsageSharing, bool>(UsageSharing.new);
 
 class UsageSharing extends Notifier<bool> {
-  static const _key = 'usage.sharingOff';
+  static const _key = 'usage.sharingOn';
+
+  /// Before the switch was the consent itself, it could only turn sharing
+  /// off; a user who did so stays off, and nobody else is opted in.
+  static const _legacyKey = 'usage.sharingOff';
 
   @override
-  bool build() => !(ref.watch(sharedPreferencesProvider).getBool(_key) ?? false);
+  bool build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    prefs.remove(_legacyKey);
+    return prefs.getBool(_key) ?? false;
+  }
 
   void set(bool on) {
-    ref.read(sharedPreferencesProvider).setBool(_key, !on);
+    ref.read(sharedPreferencesProvider).setBool(_key, on);
     state = on;
     if (!on) ref.read(usageStatsProvider).discard();
   }
@@ -58,7 +65,7 @@ class UsageStats {
   static const _pendingKey = 'usage.pending';
   bool _sending = false;
 
-  bool get _allowed => _ref.read(privacyProvider).statsConsent && _ref.read(usageSharingProvider);
+  bool get _allowed => _ref.read(usageSharingProvider);
 
   /// Counts [event] once, if the user allows statistics.
   void track(UsageEvent event, [int times = 1]) {

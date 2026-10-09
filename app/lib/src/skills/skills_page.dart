@@ -11,7 +11,6 @@ import '../home/speed_filter.dart';
 import '../puzzles/generator_banner.dart';
 import '../puzzles/puzzle_store.dart';
 import '../settings/settings_page.dart';
-import '../ads/ad_banner.dart';
 import 'skill_stats.dart';
 
 /// The user's skill profile as a radar ("web") over their analyzed games.
@@ -120,7 +119,6 @@ class _SkillsPageState extends ConsumerState<SkillsPage> {
                       ],
                     ),
             ),
-            const AdBanner(),
           ],
         ),
       ),

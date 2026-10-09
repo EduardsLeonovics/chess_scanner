@@ -6,13 +6,13 @@ abstract final class AppInfo {
   /// able to get it, so this repository must be public before release.
   static const sourceUrl = 'https://github.com/EduardsLeonovics/chess_scanner';
 
-  /// The privacy policy (share_site/chesshive/privacy/). Its #delete section
+  /// The privacy policy (share_site/privacy/). Its #delete section
   /// is the account-deletion page Google Play asks for.
-  static const privacyUrl = 'https://eduardsleonovics.github.io/chesshive/privacy/';
+  static const privacyUrl = 'https://chesshive.app/privacy/';
 
-  /// The terms of use (share_site/chesshive/terms/), accepted when creating
+  /// The terms of use (share_site/terms/), accepted when creating
   /// an account.
-  static const termsUrl = 'https://eduardsleonovics.github.io/chesshive/terms/';
+  static const termsUrl = 'https://chesshive.app/terms/';
 
   /// Where crash reports and support questions should go (forwarded by
   /// Cloudflare Email Routing).

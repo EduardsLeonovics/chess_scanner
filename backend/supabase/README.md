@@ -18,6 +18,11 @@ Edge Function (`functions/`).
    is fine for testing; before a public launch, set up your own SMTP
    (Authentication → Emails → SMTP Settings, e.g. Resend or Brevo, both have
    free tiers).
+   ChessHive uses Resend: host `smtp.resend.com`, port 465, username
+   `resend`, the Resend API key as password, sender `noreply@chesshive.app`.
+   Then paste the templates in `email_templates/` into Authentication →
+   Emails → Templates ("Confirm signup", "Reset password", "Change email
+   address").
 5. **Project Settings → API Keys**: copy the project URL and the
    *publishable* key (`sb_publishable_…`; older projects call it the
    `anon` key). Never put the *secret* / `service_role` key in the app.

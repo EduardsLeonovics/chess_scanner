@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChessHive</title>
+<meta name="description" content="Scan a chess position, analyze it with Stockfish, train on puzzles from your own games and share them with other players.">
+<style>
+  :root { --bg: #f6fbfe; --ink: #29313b; --muted: #5f6873; --line: #dfe5ea; --accent: #15781b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16191d; --ink: #e8eaed; --muted: #a3aab3; --line: #2c3238; --accent: #6fcf76; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 48px 16px 64px; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 2.2rem; margin: 0 0 8px; }
+  .lead { font-size: 1.15rem; color: var(--muted); margin: 0 0 32px; }
+  ul { padding-left: 1.2em; margin: 0 0 32px; }
+  a { color: var(--accent); }
+  .btn { display: inline-block; padding: 12px 20px; border-radius: 10px; background: var(--accent);
+         color: var(--bg); text-decoration: none; font-weight: 600; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.95rem; }
+  footer a { margin-right: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ChessHive</h1>
+  <p class="lead">The chess app that learns from your own games.</p>
+  <ul>
+    <li>Scan a board from a photo or screenshot and analyze it with Stockfish, right on your phone.</li>
+    <li>Train on puzzles found in your own Lichess and Chess.com games.</li>
+    <li>See your skills and openings, and share puzzles with other players.</li>
+  </ul>
+  <a class="btn" href="https://play.google.com/store/apps/details?id=com.eduards.chess_scanner">Get it on Google Play</a>
+  <footer>
+    <a href="privacy/">Privacy Policy</a>
+    <a href="terms/">Terms of Use</a>
+    <a href="https://github.com/EduardsLeonovics/chess_scanner">Source code</a>
+    <a href="mailto:support@chesshive.app">support@chesshive.app</a>
+  </footer>
+</main>
+</body>
+</html>

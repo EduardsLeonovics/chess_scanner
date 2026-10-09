@@ -1,15 +1,20 @@
-# Share-link site
+# chesshive.app
+
+The website at https://chesshive.app: a home page (`index.html`), the
+privacy policy (`privacy/`), the terms of use (`terms/`) and the
+shared-position page (`p/`).
 
 ChessHive's "Share position" button makes links like
-`https://eduardsleonovics.github.io/chesshive/p/?fen=...`. Android opens
+`https://chesshive.app/p/?fen=...`. Android opens
 these links straight in the app once it has verified that the site trusts
 the app. Without the app installed, the link shows this page instead: a
 picture of the position, an "Open in ChessHive" button, and a Google Play
 link.
 
-This folder is the content for the GitHub user site `EduardsLeonovics.github.io`.
-Android only reads `assetlinks.json` from the domain root, so the files
-must go in that repo, not in `chess_scanner`.
+Cloudflare Pages publishes this folder from the `main` branch of the
+public `chess_scanner` repo: every push that changes it goes live within a
+minute or two. Android only reads `.well-known/assetlinks.json` from the
+domain root, which this folder is.
 
 ## One-time setup
 
@@ -33,12 +38,12 @@ must go in that repo, not in `chess_scanner`.
    Once the app is on Google Play with Play App Signing, also add the
    *app signing* key's SHA-256 from Play Console › Setup › App signing.
    Add it as a second entry in the same list.
-3. **Publish.** On GitHub, create the public repo `EduardsLeonovics.github.io`.
-   Copy this folder's contents into it, including `.well-known/` and
-   `.nojekyll` (without `.nojekyll`, GitHub Pages hides `.well-known`), then
-   push. Under Settings › Pages, publish from the `main` branch root.
+3. **Publish.** Cloudflare dashboard › Workers & Pages › Create › Pages ›
+   Connect to Git › `chess_scanner`. Production branch `main`, no framework,
+   no build command, build output directory `share_site`. Then the
+   project's Custom domains › Set up a custom domain › `chesshive.app`.
 4. **Check.** Open
-   `https://eduardsleonovics.github.io/.well-known/assetlinks.json`, then
+   `https://chesshive.app/.well-known/assetlinks.json`, then
    install a release build (`flutter build apk --release`) and run:
    ```
    adb shell pm get-app-links com.eduards.chess_scanner

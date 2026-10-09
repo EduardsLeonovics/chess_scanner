@@ -558,6 +558,10 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
 
     final analyzed = ref.read(puzzleLibraryProvider).analyzedGames;
     final games = [for (final g in queue.games) if (!analyzed.contains(g.id)) g];
+    // Progress counts the whole load, so a continued run picks up at e.g.
+    // "game 21 of 100" rather than looking like it started over.
+    final total = queue.games.length;
+    final doneBefore = total - games.length;
     final engine = ref.read(engineProvider);
     await _sweepTooEasy(engine);
 
@@ -567,11 +571,11 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
     var failed = 0;
     for (final game in games) {
       if (_cancelled) break;
-      final message = 'Analyzing game ${done + 1} of ${games.length}';
+      final message = 'Analyzing game ${doneBefore + done + 1} of $total';
       state = GeneratorState(
         running: true,
-        done: done,
-        total: games.length,
+        done: doneBefore + done,
+        total: total,
         found: found,
         message: message,
       );
@@ -605,8 +609,8 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
     }
     final left = games.length - done;
     state = GeneratorState(
-      done: done,
-      total: games.length,
+      done: doneBefore + done,
+      total: total,
       found: found,
       warning: warnings.isNotEmpty || failed > 0,
       message: [

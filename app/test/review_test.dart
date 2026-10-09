@@ -183,6 +183,40 @@ void main() {
       expect(restarted.read(puzzleLibraryProvider).queue, isNull);
     });
 
+    test('a continued run picks up where the last one stopped', () async {
+      final engine = EngineService(launcher: () async => _SilentProcess());
+      await open({}, overrides: [engineProvider.overrideWithValue(engine)]);
+      await engine.start();
+      addTearDown(engine.dispose);
+      final notifier = container.read(puzzleLibraryProvider.notifier);
+      notifier.setQueue(GameQueue(games: [_game('lichess:1'), _game('lichess:2'), _game('lichess:3')]));
+      notifier.addGame(_game('lichess:1'), const [], null, true);
+      notifier.flush();
+
+      // The app is restarted and the user taps Continue.
+      final prefs = container.read(sharedPreferencesProvider);
+      final restarted = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        engineProvider.overrideWithValue(engine),
+      ]);
+      addTearDown(restarted.dispose);
+      final analyzedNow = <String>[];
+      final messages = <String>[];
+      restarted.listen(puzzleGeneratorProvider, (_, s) {
+        if (s.running && s.message != null) messages.add(s.message!);
+      });
+      final generator = restarted.read(puzzleGeneratorProvider.notifier);
+      generator.analyze = (game, evaluate, book, isCancelled) async {
+        analyzedNow.add(game.id);
+        return GameAnalysis(const [], _stats);
+      };
+      await generator.run();
+
+      expect(analyzedNow, ['lichess:2', 'lichess:3']);
+      expect(messages, containsAllInOrder(['Analyzing game 2 of 3', 'Analyzing game 3 of 3']));
+      expect(restarted.read(puzzleLibraryProvider).queue, isNull);
+    });
+
     test('a game that throws is skipped and the rest are still analyzed', () async {
       final engine = EngineService(launcher: () async => _SilentProcess());
       await open({}, overrides: [engineProvider.overrideWithValue(engine)]);

@@ -17,7 +17,7 @@ void main() {
   });
 
   test('other links and broken positions are refused', () {
-    expect(positionFromLink(Uri.parse('https://example.com/chesshive/p/?fen=8/8/8/8/8/8/8/8')), isNull);
+    expect(positionFromLink(Uri.parse('https://example.com/p/?fen=8/8/8/8/8/8/8/8')), isNull);
     expect(positionFromLink(positionLink('not a fen')), isNull);
     // Two white kings: parses as FEN but isn't a legal position.
     expect(positionFromLink(positionLink('4k3/8/8/8/8/8/8/K3K3 w - - 0 1')), isNull);
