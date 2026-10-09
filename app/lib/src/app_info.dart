@@ -4,7 +4,7 @@ abstract final class AppInfo {
 
   /// Where the GPL source code is published. The GPL requires users to be
   /// able to get it, so this repository must be public before release.
-  static const sourceUrl = 'https://github.com/EduardsLeonovics/chess_scanner';
+  static const sourceUrl = 'https://github.com/EduardsLeonovics/chesshive';
 
   /// The privacy policy (share_site/privacy/). Its #delete section
   /// is the account-deletion page Google Play asks for.
