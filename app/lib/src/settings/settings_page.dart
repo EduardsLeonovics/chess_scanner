@@ -11,6 +11,7 @@ import '../privacy/privacy_section.dart';
 import 'accounts_section.dart';
 import 'appearance.dart';
 import 'color_picker.dart';
+import 'outline_width_picker.dart';
 import 'data_sections.dart';
 
 /// Slides the settings in from the right, where the gear button is.
@@ -224,32 +225,57 @@ class SettingsPage extends ConsumerWidget {
                   _Section(
                     icon: Icons.blur_circular,
                     title: 'Piece outline',
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _ColorButton(
-                          label: 'White pieces',
-                          color: appearance.effectiveWhiteOutline,
-                          onTap: () => pickColor(
-                            'White piece outline',
-                            appearance.effectiveWhiteOutline ?? const Color(0xFF000000),
-                            notifier.setWhiteOutline,
-                          ),
-                          onClear: appearance.effectiveWhiteOutline == null
-                              ? null
-                              : () => notifier.setWhiteOutline(Appearance.noOutline),
+                        Row(
+                          children: [
+                            _ColorButton(
+                              label: 'White pieces',
+                              color: appearance.whiteLines,
+                              onTap: () => pickColor(
+                                'White piece lines',
+                                appearance.whiteLines,
+                                notifier.setWhiteOutline,
+                              ),
+                              onClear: appearance.whiteOutline == null ? null : () => notifier.setWhiteOutline(null),
+                            ),
+                            const SizedBox(width: 10),
+                            _ColorButton(
+                              label: 'Black pieces',
+                              color: appearance.blackLines,
+                              onTap: () => pickColor(
+                                'Black piece lines',
+                                appearance.blackLines,
+                                notifier.setBlackOutline,
+                              ),
+                              onClear: appearance.blackOutline == null ? null : () => notifier.setBlackOutline(null),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 10),
-                        _ColorButton(
-                          label: 'Black pieces',
-                          color: appearance.effectiveBlackOutline,
-                          onTap: () => pickColor(
-                            'Black piece outline',
-                            appearance.effectiveBlackOutline ?? const Color(0xFFFFFFFF),
-                            notifier.setBlackOutline,
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: () => showOutlineWidthPicker(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            side: const BorderSide(color: _line),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            alignment: Alignment.centerLeft,
                           ),
-                          onClear: appearance.effectiveBlackOutline == null
-                              ? null
-                              : () => notifier.setBlackOutline(Appearance.noOutline),
+                          icon: const Icon(Icons.line_weight, color: _ink, size: 20),
+                          label: Text(
+                            appearance.outlineWidth == 0
+                                ? 'Outline width: none'
+                                : 'Outline width: ${appearance.outlineWidth}',
+                            style: const TextStyle(color: _ink),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text(
+                            'The colour of the lines and details inside the pieces, and of the ring around them.',
+                            style: TextStyle(color: _muted, fontSize: 13),
+                          ),
                         ),
                       ],
                     ),

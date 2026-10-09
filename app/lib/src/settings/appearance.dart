@@ -41,33 +41,29 @@ final boardThemes = [
   BoardTheme(blackWhiteThemeId, 'Black & white', _solidScheme(const Color(0xFFFFFFFF), const Color(0xFF000000))),
 ];
 
-/// The colours of the piece sets that aren't black and white (see
-/// tool/make_piece_sets.py).
-const pieceSetColors = {
-  PieceSet.wood: [Color(0xFFECD2A0), Color(0xFF5B3C1C), Color(0xFF6B3F1D), Color(0xFF2A1608)],
-  PieceSet.glass: [Color(0xFF4F6F86), Color(0xFF2B3442), Color(0xFFC9D6E3)],
-};
-
 /// The piece styles offered in settings: widely used Lichess sets, and
 /// ChessHive's own (all licensed for commercial use; see
 /// third_party/chessground/LICENSES.md).
 const pieceStyles = [
   (PieceSet.cburnett, 'Classic'),
   (PieceSet.merida, 'Merida'),
-  (PieceSet.chessnut, 'Chessnut'),
   (PieceSet.geo, 'Geo'),
   (PieceSet.ink, 'Ink'),
-  (PieceSet.bubble, 'Bubble'),
-  (PieceSet.wood, 'Wood'),
-  (PieceSet.glass, 'Glass'),
-  (PieceSet.bold, 'Bold'),
-  (PieceSet.eightbit, '8-bit'),
+  (PieceSet.mpchess, 'Modern'),
+  (PieceSet.celtic, 'Celtic'),
+  (PieceSet.fantasy, 'Fantasy'),
+  (PieceSet.spatial, 'Spatial'),
+  (PieceSet.pixel, 'Pixel'),
 ];
+
+/// Sets drawn in tinted greys (Celtic's slate-blue black pieces): always
+/// mapped to neutral black and white, like every other set.
+const neutralizedSets = {PieceSet.celtic, PieceSet.fantasy, PieceSet.spatial};
 
 /// How fast pieces glide to their square when a move is played.
 enum PieceAnimation {
   instant('Instant', Duration.zero),
-  fast('Fast', Duration(milliseconds: 120)),
+  fast('Fast', Duration(milliseconds: 96)),
   moderate('Moderate', Duration(milliseconds: 250)),
   slow('Slow', Duration(milliseconds: 450));
 
@@ -93,6 +89,7 @@ class Appearance {
     this.animation = PieceAnimation.moderate,
     this.whiteOutline,
     this.blackOutline,
+    this.outlineWidth = 0,
     this.background = defaultBackground,
   });
 
@@ -145,35 +142,44 @@ class Appearance {
   /// How fast pieces move on the boards.
   final PieceAnimation animation;
 
-  /// A ring drawn around the white / black pieces. Null: the default (none,
-  /// except for black pieces: white on the [blackWhiteThemeId] board, dark
-  /// brown on the [goldenThemeId] one); [noOutline]: none, even there.
+  /// The colour of the white / black pieces' lines: the outline and the
+  /// drawn details inside (dark on white pieces, light on black ones), and
+  /// the ring around them when [outlineWidth] is set. Null: the piece
+  /// set's own (black for White, white for Black).
   final Color? whiteOutline;
   final Color? blackOutline;
 
-  static const noOutline = Color(0x00000000);
+  /// Thickness of a ring around the pieces, outside them only:
+  /// 0 (none) to [maxOutlineWidth].
+  final int outlineWidth;
+
+  static const maxOutlineWidth = 10;
+
+  /// Ring thickness per [outlineWidth] step, as a share of the piece image.
+  static const _ringStep = 0.006;
 
   /// The app's background colour.
   final Color background;
 
-  Color? get effectiveWhiteOutline => _visible(whiteOutline);
+  /// The colour of White's / Black's lines (see [whiteOutline]).
+  Color get whiteLines => _visible(whiteOutline) ?? untintedBlack;
+  Color get blackLines => _visible(blackOutline) ?? untintedWhite;
+
+  /// Ring thickness around White's / Black's pieces, as a share of the
+  /// piece image (0: none). Black pieces on the black & white board get a
+  /// thin one unless a width is chosen: they'd vanish on the black squares.
+  double get whiteRing => outlineWidth * _ringStep;
+  double get blackRing =>
+      (outlineWidth == 0 && boardThemeId == blackWhiteThemeId ? 4 : outlineWidth) * _ringStep;
 
   /// Colours the pieces are drawn in, for reading this app's own
   /// screenshots back (see `recognizeBoard`).
   List<Color> get pieceColors => [
         whitePieces,
         blackPieces,
-        ?effectiveWhiteOutline,
-        ?effectiveBlackOutline,
-        ...?pieceSetColors[pieceSet],
+        whiteLines,
+        blackLines,
       ];
-
-  Color? get effectiveBlackOutline => _visible(blackOutline ??
-      switch (boardThemeId) {
-        blackWhiteThemeId => const Color(0xFFFFFFFF),
-        goldenThemeId => const Color(0xFF3D2A00),
-        _ => null,
-      });
 
   static Color? _visible(Color? c) => c == null || c.a == 0 ? null : c;
 
@@ -199,6 +205,7 @@ class Appearance {
     PieceAnimation? animation,
     Color? Function()? whiteOutline,
     Color? Function()? blackOutline,
+    int? outlineWidth,
     Color? background,
   }) {
     return Appearance(
@@ -214,6 +221,7 @@ class Appearance {
       animation: animation ?? this.animation,
       whiteOutline: whiteOutline == null ? this.whiteOutline : whiteOutline(),
       blackOutline: blackOutline == null ? this.blackOutline : blackOutline(),
+      outlineWidth: outlineWidth ?? this.outlineWidth,
       background: background ?? this.background,
     );
   }
@@ -230,6 +238,7 @@ class Appearance {
   static const _animationKey = 'appearance.animation';
   static const _whiteOutlineKey = 'appearance.whiteOutline';
   static const _blackOutlineKey = 'appearance.blackOutline';
+  static const _outlineWidthKey = 'appearance.outlineWidth';
   static const _backgroundKey = 'appearance.background';
 
   factory Appearance.fromPrefs(SharedPreferences prefs) {
@@ -256,6 +265,7 @@ class Appearance {
       animation: PieceAnimation.values.asNameMap()[prefs.getString(_animationKey)] ?? defaults.animation,
       whiteOutline: color(_whiteOutlineKey),
       blackOutline: color(_blackOutlineKey),
+      outlineWidth: (prefs.getInt(_outlineWidthKey) ?? defaults.outlineWidth).clamp(0, maxOutlineWidth),
       background: color(_backgroundKey) ?? defaults.background,
     );
   }
@@ -272,6 +282,7 @@ class Appearance {
     await prefs.setBool(_evalBarKey, showEvalBar);
     await prefs.setString(_animationKey, animation.name);
     await prefs.setInt(_backgroundKey, background.toARGB32());
+    await prefs.setInt(_outlineWidthKey, outlineWidth);
     for (final (key, color) in [(_whiteOutlineKey, whiteOutline), (_blackOutlineKey, blackOutline)]) {
       if (color == null) {
         await prefs.remove(key);
@@ -296,6 +307,7 @@ class Appearance {
       other.animation == animation &&
       other.whiteOutline == whiteOutline &&
       other.blackOutline == blackOutline &&
+      other.outlineWidth == outlineWidth &&
       other.background == background;
 
   @override
@@ -313,6 +325,7 @@ class Appearance {
         animation,
         whiteOutline,
         blackOutline,
+        outlineWidth,
         background,
       );
 }
@@ -375,10 +388,13 @@ class AppearanceNotifier extends Notifier<Appearance> {
 
   void setAnimation(PieceAnimation animation) => _update(state.copyWith(animation: animation));
 
-  /// [Appearance.noOutline] turns an outline off; null restores the default.
+  /// The colour of White's / Black's lines; null restores the set's own.
   void setWhiteOutline(Color? color) => _update(state.copyWith(whiteOutline: () => color));
 
   void setBlackOutline(Color? color) => _update(state.copyWith(blackOutline: () => color));
+
+  void setOutlineWidth(int width) =>
+      _update(state.copyWith(outlineWidth: width.clamp(0, Appearance.maxOutlineWidth)));
 
   void setBackground(Color color) => _update(state.copyWith(background: color));
 
@@ -390,53 +406,64 @@ class AppearanceNotifier extends Notifier<Appearance> {
   }
 }
 
-/// The piece images to draw, recoloured to the chosen piece colours and
-/// outlined as chosen.
+/// The piece images to draw, recoloured to the chosen piece and line
+/// colours and ringed as chosen.
 final pieceAssetsProvider = FutureProvider<PieceAssets>((ref) {
-  final (set, white, black, whiteOutline, blackOutline) = ref.watch(
+  final (set, white, black, whiteLines, blackLines, whiteRing, blackRing) = ref.watch(
     appearanceProvider.select(
-      (a) => (a.pieceSet, a.whitePieces, a.blackPieces, a.effectiveWhiteOutline, a.effectiveBlackOutline),
+      (a) => (a.pieceSet, a.whitePieces, a.blackPieces, a.whiteLines, a.blackLines, a.whiteRing, a.blackRing),
     ),
   );
   return tintedPieceAssets(
     set,
     white: white,
     black: black,
-    whiteOutline: whiteOutline,
-    blackOutline: blackOutline,
+    whiteLines: whiteLines,
+    blackLines: blackLines,
+    whiteRing: whiteRing,
+    blackRing: blackRing,
   );
 });
 
-/// [set]'s pieces with white fills tinted [white] and black fills tinted
-/// [black], ringed with [whiteOutline] / [blackOutline] when given. The
-/// recoloured images are put in chessground's image cache under their own
+/// [set]'s pieces recoloured: fills to [white] / [black], lines (outline and
+/// inner details) to [whiteLines] / [blackLines], with a ring of the line
+/// colour [whiteRing] / [blackRing] thick (a share of the image) outside
+/// the piece. The images go in chessground's image cache under their own
 /// keys, so the board widgets can use them like any set.
 Future<PieceAssets> tintedPieceAssets(
   PieceSet set, {
   required Color white,
   required Color black,
-  Color? whiteOutline,
-  Color? blackOutline,
+  Color whiteLines = Appearance.untintedBlack,
+  Color blackLines = Appearance.untintedWhite,
+  double whiteRing = 0,
+  double blackRing = 0,
 }) async {
   final assets = <PieceKind, AssetImage>{};
   for (final MapEntry(key: kind, value: asset) in set.assets.entries) {
     final isWhite = kind.side == Side.white;
-    final color = isWhite ? white : black;
-    final outline = isWhite ? whiteOutline : blackOutline;
-    final tinted = color != (isWhite ? Appearance.untintedWhite : Appearance.untintedBlack);
-    if (!tinted && outline == null) {
+    final fill = isWhite ? white : black;
+    final lines = isWhite ? whiteLines : blackLines;
+    final ring = isWhite ? whiteRing : blackRing;
+    final recolored = neutralizedSets.contains(set) ||
+        (isWhite
+            ? fill != Appearance.untintedWhite || lines != Appearance.untintedBlack
+            : fill != Appearance.untintedBlack || lines != Appearance.untintedWhite);
+    if (!recolored && ring <= 0) {
       assets[kind] = asset;
       continue;
     }
     String hex(Color c) => c.toARGB32().toRadixString(16);
     final key = AssetImage(
-      '${asset.assetName}#${hex(color)}${outline == null ? '' : '#${hex(outline)}'}',
+      '${asset.assetName}#${hex(fill)}#${hex(lines)}#${ring.toStringAsFixed(3)}',
       package: asset.package,
     );
     if (ChessgroundImages.instance.get(key) == null) {
       var image = await ChessgroundImages.instance.load(asset);
-      if (tinted) image = await _tint(image, color, kind.side);
-      if (outline != null) image = await _outline(image, outline);
+      // White pieces are a light fill with dark lines; black pieces the
+      // other way round.
+      if (recolored) image = await _recolor(image, dark: isWhite ? lines : fill, light: isWhite ? fill : lines);
+      if (ring > 0) image = await _ring(image, lines, ring);
       ChessgroundImages.instance.add(key, image);
     }
     assets[kind] = key;
@@ -444,15 +471,16 @@ Future<PieceAssets> tintedPieceAssets(
   return assets;
 }
 
-/// [source] on top of a ring of [color] around its shape: the shape is
-/// stamped in [color] at offsets around a circle (a cheap dilation),
-/// then the piece itself is drawn over it.
-Future<ui.Image> _outline(ui.Image source, Color color) {
+/// [source] with a ring of [color] around its shape, [thickness] (a share
+/// of the image width) wide, outside it only: the shape is stamped in
+/// [color] at offsets around a circle (a cheap dilation), then the piece
+/// itself is drawn over it unchanged, at its own size.
+Future<ui.Image> _ring(ui.Image source, Color color, double thickness) {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
-  final radius = source.width * 0.035;
+  final radius = source.width * thickness;
   final stamp = Paint()..colorFilter = ColorFilter.mode(color, BlendMode.srcIn);
-  const steps = 16;
+  const steps = 24;
   for (var i = 0; i < steps; i++) {
     final angle = 2 * math.pi * i / steps;
     canvas.drawImage(source, Offset(math.cos(angle) * radius, math.sin(angle) * radius), stamp);
@@ -461,19 +489,18 @@ Future<ui.Image> _outline(ui.Image source, Color color) {
   return recorder.endRecording().toImage(source.width, source.height);
 }
 
-Future<ui.Image> _tint(ui.Image source, Color color, Side side) {
-  final (r, g, b) = (color.r, color.g, color.b);
-  // White pieces: multiply, so the white fill takes the colour and the
-  // dark outline stays dark. Black pieces: screen, so the black fill takes
-  // the colour and light details stay light. Alpha is left untouched.
-  final matrix = side == Side.white
-      ? <double>[r, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0]
-      : <double>[
-          1 - r, 0, 0, 0, 255 * r, //
-          0, 1 - g, 0, 0, 255 * g,
-          0, 0, 1 - b, 0, 255 * b,
-          0, 0, 0, 1, 0,
-        ];
+/// [source] (a piece drawn in black and white and the greys between)
+/// mapped so that black becomes [dark] and white becomes [light], greys in
+/// between: fill, lines, details and shading all take the new colours.
+/// Alpha is left untouched.
+Future<ui.Image> _recolor(ui.Image source, {required Color dark, required Color light}) {
+  List<double> row(double d, double l) => [(l - d) * 0.299, (l - d) * 0.587, (l - d) * 0.114, 0, d * 255];
+  final matrix = <double>[
+    ...row(dark.r, light.r),
+    ...row(dark.g, light.g),
+    ...row(dark.b, light.b),
+    0, 0, 0, 1, 0, //
+  ];
   final recorder = ui.PictureRecorder();
   Canvas(recorder).drawImage(
     source,

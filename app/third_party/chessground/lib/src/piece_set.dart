@@ -22,12 +22,7 @@ enum PieceSet {
   letter('Letter', PieceSet.letterAssets),
   totoy('Totoy', PieceSet.totoyAssets),
   geo('Geo', PieceSet.geoAssets),
-  ink('Ink', PieceSet.inkAssets),
-  bubble('Bubble', PieceSet.bubbleAssets),
-  wood('Wood', PieceSet.woodAssets),
-  glass('Glass', PieceSet.glassAssets),
-  bold('Bold', PieceSet.boldAssets),
-  eightbit('Eightbit', PieceSet.eightbitAssets);
+  ink('Ink', PieceSet.inkAssets);
 
   const PieceSet(this.label, this.assets);
 
@@ -309,83 +304,4 @@ enum PieceSet {
     PieceKind.whiteKing: AssetImage('$_pieceSetsPath/ink/wK.webp', package: 'chessground'),
   };
 
-  /// The [PieceAssets] for the 'Bubble' piece set (ChessHive's own).
-  static const PieceAssets bubbleAssets = {
-    PieceKind.blackRook: AssetImage('$_pieceSetsPath/bubble/bR.webp', package: 'chessground'),
-    PieceKind.blackPawn: AssetImage('$_pieceSetsPath/bubble/bP.webp', package: 'chessground'),
-    PieceKind.blackKnight: AssetImage('$_pieceSetsPath/bubble/bN.webp', package: 'chessground'),
-    PieceKind.blackBishop: AssetImage('$_pieceSetsPath/bubble/bB.webp', package: 'chessground'),
-    PieceKind.blackQueen: AssetImage('$_pieceSetsPath/bubble/bQ.webp', package: 'chessground'),
-    PieceKind.blackKing: AssetImage('$_pieceSetsPath/bubble/bK.webp', package: 'chessground'),
-    PieceKind.whiteRook: AssetImage('$_pieceSetsPath/bubble/wR.webp', package: 'chessground'),
-    PieceKind.whitePawn: AssetImage('$_pieceSetsPath/bubble/wP.webp', package: 'chessground'),
-    PieceKind.whiteKnight: AssetImage('$_pieceSetsPath/bubble/wN.webp', package: 'chessground'),
-    PieceKind.whiteBishop: AssetImage('$_pieceSetsPath/bubble/wB.webp', package: 'chessground'),
-    PieceKind.whiteQueen: AssetImage('$_pieceSetsPath/bubble/wQ.webp', package: 'chessground'),
-    PieceKind.whiteKing: AssetImage('$_pieceSetsPath/bubble/wK.webp', package: 'chessground'),
-  };
-
-  /// The [PieceAssets] for the 'Wood' piece set (ChessHive's own).
-  static const PieceAssets woodAssets = {
-    PieceKind.blackRook: AssetImage('$_pieceSetsPath/wood/bR.webp', package: 'chessground'),
-    PieceKind.blackPawn: AssetImage('$_pieceSetsPath/wood/bP.webp', package: 'chessground'),
-    PieceKind.blackKnight: AssetImage('$_pieceSetsPath/wood/bN.webp', package: 'chessground'),
-    PieceKind.blackBishop: AssetImage('$_pieceSetsPath/wood/bB.webp', package: 'chessground'),
-    PieceKind.blackQueen: AssetImage('$_pieceSetsPath/wood/bQ.webp', package: 'chessground'),
-    PieceKind.blackKing: AssetImage('$_pieceSetsPath/wood/bK.webp', package: 'chessground'),
-    PieceKind.whiteRook: AssetImage('$_pieceSetsPath/wood/wR.webp', package: 'chessground'),
-    PieceKind.whitePawn: AssetImage('$_pieceSetsPath/wood/wP.webp', package: 'chessground'),
-    PieceKind.whiteKnight: AssetImage('$_pieceSetsPath/wood/wN.webp', package: 'chessground'),
-    PieceKind.whiteBishop: AssetImage('$_pieceSetsPath/wood/wB.webp', package: 'chessground'),
-    PieceKind.whiteQueen: AssetImage('$_pieceSetsPath/wood/wQ.webp', package: 'chessground'),
-    PieceKind.whiteKing: AssetImage('$_pieceSetsPath/wood/wK.webp', package: 'chessground'),
-  };
-
-  /// The [PieceAssets] for the 'Glass' piece set (ChessHive's own).
-  static const PieceAssets glassAssets = {
-    PieceKind.blackRook: AssetImage('$_pieceSetsPath/glass/bR.webp', package: 'chessground'),
-    PieceKind.blackPawn: AssetImage('$_pieceSetsPath/glass/bP.webp', package: 'chessground'),
-    PieceKind.blackKnight: AssetImage('$_pieceSetsPath/glass/bN.webp', package: 'chessground'),
-    PieceKind.blackBishop: AssetImage('$_pieceSetsPath/glass/bB.webp', package: 'chessground'),
-    PieceKind.blackQueen: AssetImage('$_pieceSetsPath/glass/bQ.webp', package: 'chessground'),
-    PieceKind.blackKing: AssetImage('$_pieceSetsPath/glass/bK.webp', package: 'chessground'),
-    PieceKind.whiteRook: AssetImage('$_pieceSetsPath/glass/wR.webp', package: 'chessground'),
-    PieceKind.whitePawn: AssetImage('$_pieceSetsPath/glass/wP.webp', package: 'chessground'),
-    PieceKind.whiteKnight: AssetImage('$_pieceSetsPath/glass/wN.webp', package: 'chessground'),
-    PieceKind.whiteBishop: AssetImage('$_pieceSetsPath/glass/wB.webp', package: 'chessground'),
-    PieceKind.whiteQueen: AssetImage('$_pieceSetsPath/glass/wQ.webp', package: 'chessground'),
-    PieceKind.whiteKing: AssetImage('$_pieceSetsPath/glass/wK.webp', package: 'chessground'),
-  };
-
-  /// The [PieceAssets] for the 'Bold' piece set (ChessHive's own).
-  static const PieceAssets boldAssets = {
-    PieceKind.blackRook: AssetImage('$_pieceSetsPath/bold/bR.webp', package: 'chessground'),
-    PieceKind.blackPawn: AssetImage('$_pieceSetsPath/bold/bP.webp', package: 'chessground'),
-    PieceKind.blackKnight: AssetImage('$_pieceSetsPath/bold/bN.webp', package: 'chessground'),
-    PieceKind.blackBishop: AssetImage('$_pieceSetsPath/bold/bB.webp', package: 'chessground'),
-    PieceKind.blackQueen: AssetImage('$_pieceSetsPath/bold/bQ.webp', package: 'chessground'),
-    PieceKind.blackKing: AssetImage('$_pieceSetsPath/bold/bK.webp', package: 'chessground'),
-    PieceKind.whiteRook: AssetImage('$_pieceSetsPath/bold/wR.webp', package: 'chessground'),
-    PieceKind.whitePawn: AssetImage('$_pieceSetsPath/bold/wP.webp', package: 'chessground'),
-    PieceKind.whiteKnight: AssetImage('$_pieceSetsPath/bold/wN.webp', package: 'chessground'),
-    PieceKind.whiteBishop: AssetImage('$_pieceSetsPath/bold/wB.webp', package: 'chessground'),
-    PieceKind.whiteQueen: AssetImage('$_pieceSetsPath/bold/wQ.webp', package: 'chessground'),
-    PieceKind.whiteKing: AssetImage('$_pieceSetsPath/bold/wK.webp', package: 'chessground'),
-  };
-
-  /// The [PieceAssets] for the 'Eightbit' piece set (ChessHive's own).
-  static const PieceAssets eightbitAssets = {
-    PieceKind.blackRook: AssetImage('$_pieceSetsPath/eightbit/bR.webp', package: 'chessground'),
-    PieceKind.blackPawn: AssetImage('$_pieceSetsPath/eightbit/bP.webp', package: 'chessground'),
-    PieceKind.blackKnight: AssetImage('$_pieceSetsPath/eightbit/bN.webp', package: 'chessground'),
-    PieceKind.blackBishop: AssetImage('$_pieceSetsPath/eightbit/bB.webp', package: 'chessground'),
-    PieceKind.blackQueen: AssetImage('$_pieceSetsPath/eightbit/bQ.webp', package: 'chessground'),
-    PieceKind.blackKing: AssetImage('$_pieceSetsPath/eightbit/bK.webp', package: 'chessground'),
-    PieceKind.whiteRook: AssetImage('$_pieceSetsPath/eightbit/wR.webp', package: 'chessground'),
-    PieceKind.whitePawn: AssetImage('$_pieceSetsPath/eightbit/wP.webp', package: 'chessground'),
-    PieceKind.whiteKnight: AssetImage('$_pieceSetsPath/eightbit/wN.webp', package: 'chessground'),
-    PieceKind.whiteBishop: AssetImage('$_pieceSetsPath/eightbit/wB.webp', package: 'chessground'),
-    PieceKind.whiteQueen: AssetImage('$_pieceSetsPath/eightbit/wQ.webp', package: 'chessground'),
-    PieceKind.whiteKing: AssetImage('$_pieceSetsPath/eightbit/wK.webp', package: 'chessground'),
-  };
 }

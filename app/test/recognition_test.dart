@@ -156,19 +156,10 @@ void main() {
 
     // The app's own look: the golden board, every one of ChessHive's sets.
     final golden = (img.ColorRgb8(0xFF, 0xFD, 0xF5), img.ColorRgb8(0xF2, 0xCC, 0x55));
-    for (final set in [
-      PieceSet.geo,
-      PieceSet.ink,
-      PieceSet.bubble,
-      PieceSet.wood,
-      PieceSet.glass,
-      PieceSet.bold,
-      PieceSet.eightbit,
-    ]) {
-      test("reads ChessHive's ${set.label} pieces on the golden board", () async {
+    for (final (set, _) in pieceStyles) {
+      test('reads the ${set.label} pieces on the golden board', () async {
         final bytes = await _screenshot(_middlegame, set: set, light: golden.$1, dark: golden.$2);
-        // The app passes the set's own colours, as it does when scanning.
-        final result = await _recognize(bytes, pieceColors: pieceSetColors[set] ?? const []);
+        final result = await _recognize(bytes);
         expect(result.board.fen, _middlegame);
       });
     }

@@ -110,11 +110,13 @@ Chess.com games.
   Stockfish's `position` command also refuses them (patch in `uci.cpp`).
 - Piece sets: only sets licensed for commercial use (the app shows ads).
   chessground is vendored in `app/third_party/chessground` with the rest
-  removed; licences in its LICENSES.md. Geo, Ink, Bubble, Wood, Glass, Bold
-  and Eightbit (shown as "8-bit") are our own, drawn by
+  removed; licences in its LICENSES.md. Geo and Ink are our own, drawn by
   `app/tool/make_piece_sets.py` (don't reuse a chessground set's folder
-  name: `pixel` is lichess's). New own sets also go in the recognizer's
-  `templateSets`, and coloured ones in `pieceSetColors`.
+  name: `pixel` is lichess's). Every offered set (`pieceStyles`) must be
+  black and white by default (tinted ones go in `neutralizedSets`) and
+  read back on the golden board (a test checks). Piece colours: a fill
+  colour and a line colour per side (`_recolor` maps the sprite's black to
+  white range onto them) and an optional ring outside the piece.
 - Ads and privacy: Google's consent message (UMP) runs at launch
   (`privacy/consent.dart`); ads load only after it allows. Banners only on
   read-only pages (Skills, Openings), never next to a board. Usage

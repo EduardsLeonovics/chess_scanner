@@ -24,7 +24,7 @@ Licences per Lichess's COPYING.md (https://github.com/lichess-org/lila/blob/mast
 | firi | James Faure | CC BY 4.0 |
 | totoy | Kosal Sen | CC BY 4.0 |
 | rhosgfx | RhosGFX | CC0 1.0 |
-| geo, ink, bubble, wood, glass, bold, eightbit | ChessHive (drawn by `app/tool/make_piece_sets.py`) | GPL-3.0, with the app |
+| geo, ink | ChessHive (drawn by `app/tool/make_piece_sets.py`) | GPL-3.0, with the app |
 | Board images | lila authors & pirouetti | AGPLv3+ |
 
 Before adding a piece set or board image, check its licence allows

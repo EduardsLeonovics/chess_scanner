@@ -43,7 +43,7 @@ Future<void> main() async {
                 'shapes by flugsio (CC BY-SA 4.0); kiwen-suwi by neverRare, firi by James Faure and '
                 'totoy by Kosal Sen (CC BY 4.0, creativecommons.org/licenses/by/4.0); rhosgfx by '
                 'RhosGFX (CC0). Board images by the lila authors and pirouetti (AGPLv3+). '
-                'The Geo, Ink, Bubble, Wood, Glass, Bold and 8-bit sets are ChessHive\'s own (GPLv3).',
+                'The Geo and Ink sets are ChessHive\'s own (GPLv3).',
           ),
           LicenseEntryWithLineBreaks(
             ['lichess-org/chess-openings'],

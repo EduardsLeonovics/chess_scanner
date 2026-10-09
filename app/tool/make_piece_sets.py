@@ -1,5 +1,4 @@
-"""Draws ChessHive's own piece sets for chessground: Geo, Ink, Bubble,
-Wood, Glass, Bold and Eightbit.
+"""Draws ChessHive's own piece sets for chessground: Geo and Ink.
 
 Every piece is built from simple shapes in a unit square (x right, y down):
 smooth turned profiles (a Staunton body is the same curve mirrored), a
@@ -172,8 +171,8 @@ def geo(role):
 
 
 # ---------------------------------------------------------------------------
-# Staunton: the classic shapes shared by Ink, Bubble, Wood and Glass, drawn
-# as smooth turned profiles. [fat] widens everything (Bubble is chunkier).
+# Staunton: Ink's classic shapes, drawn as smooth turned profiles. [fat]
+# widens everything.
 
 def staunton(role, fat=1.0):
     def w(v):
@@ -248,181 +247,6 @@ def ink(role):
     return staunton(role)
 
 
-def bubble(role):
-    body, _ = staunton(role, fat=1.12)
-    # Neo-style: no engraved lines, just the knight's eye.
-    details = [d for d in staunton(role, fat=1.12)[1] if d[0] == 'ellipse']
-    return body, details
-
-
-def wood(role):
-    body, details = staunton(role, fat=1.05)
-    return body, [d for d in details if d[0] == 'ellipse']
-
-
-def glass(role):
-    body, details = staunton(role, fat=1.04)
-    return body, [d for d in details if d[0] == 'ellipse']
-
-
-# ---------------------------------------------------------------------------
-# Bold: heavy flat shapes with chunky features, like a printed diagram.
-
-def bold(role):
-    base = [rrect(0.2, 0.78, 0.8, 0.9, 0.03)]
-    if role == 'P':
-        return base + [lathe([(0.5, 0.09), (0.62, 0.1), (0.72, 0.16), (0.79, 0.22)]),
-                       ellipse(0.5, 0.36, 0.14), rrect(0.33, 0.48, 0.67, 0.55, 0.03)], []
-    if role == 'R':
-        top = poly((0.25, 0.15), (0.37, 0.15), (0.37, 0.24), (0.45, 0.24), (0.45, 0.15), (0.55, 0.15),
-                   (0.55, 0.24), (0.63, 0.24), (0.63, 0.15), (0.75, 0.15), (0.75, 0.38), (0.25, 0.38))
-        return base + [top, trapezoid(0.36, 0.17, 0.79, 0.24)], [
-            line((0.29, 0.38), (0.71, 0.38), w=0.028), line((0.27, 0.66), (0.73, 0.66), w=0.028)]
-    if role == 'B':
-        return base + [lathe([(0.6, 0.08), (0.7, 0.13), (0.79, 0.22)]),
-                       lathe([(0.12, 0.0), (0.18, 0.08), (0.3, 0.16), (0.45, 0.15), (0.6, 0.0)]),
-                       rrect(0.31, 0.56, 0.69, 0.63, 0.03), ellipse(0.5, 0.11, 0.055)], [
-            line((0.45, 0.43), (0.59, 0.27), w=0.04)]
-    if role == 'N':
-        head = spline((0.27, 0.79), (0.3, 0.64), (0.4, 0.55), (0.3, 0.53), (0.18, 0.5), (0.13, 0.42),
-                      (0.2, 0.33), (0.32, 0.25), (0.36, 0.12), (0.47, 0.18), (0.62, 0.2), (0.75, 0.31),
-                      (0.81, 0.52), (0.79, 0.79))
-        return base + [head], [('ellipse', (0.34, 0.31, 0.035, 0.035)),
-                               line((0.55, 0.23), (0.69, 0.36), (0.73, 0.55), w=0.03)]
-    if role == 'Q':
-        crown = poly((0.17, 0.24), (0.32, 0.47), (0.38, 0.17), (0.5, 0.44), (0.62, 0.17), (0.68, 0.47),
-                     (0.83, 0.24), (0.74, 0.6), (0.26, 0.6))
-        balls = [ellipse(x, y, 0.055) for x, y in ((0.17, 0.22), (0.38, 0.15), (0.62, 0.15), (0.83, 0.22))]
-        return base + [trapezoid(0.58, 0.22, 0.79, 0.26), crown] + balls, [
-            line((0.29, 0.6), (0.71, 0.6), w=0.028)]
-    if role == 'K':
-        return base + [trapezoid(0.5, 0.22, 0.79, 0.26), lathe([(0.3, 0.16), (0.4, 0.24), (0.52, 0.21)]),
-                       rrect(0.45, 0.06, 0.55, 0.32, 0.01), rrect(0.36, 0.13, 0.64, 0.22, 0.01)], [
-            line((0.3, 0.52), (0.7, 0.52), w=0.028)]
-
-
-# ---------------------------------------------------------------------------
-# Pixel: 8-bit sprites drawn cell by cell on a 16x16 grid. "#" is the
-# piece, "o" a detail (eye, slit, band); the outline is added around them.
-
-PIXEL = {
-    'K': ['.......##.......',
-          '......####......',
-          '.......##.......',
-          '....########....',
-          '...##########...',
-          '...##oooooo##...',
-          '....########....',
-          '.....######.....',
-          '......####......',
-          '......####......',
-          '.....######.....',
-          '....########....',
-          '...##########...',
-          '..############..',
-          '..############..',
-          '................'],
-    'Q': ['.......##.......',
-          '..##..####..##..',
-          '..##...##...##..',
-          '...#...##...#...',
-          '...##.####.##...',
-          '...##########...',
-          '....##oooo##....',
-          '.....######.....',
-          '......####......',
-          '......####......',
-          '.....######.....',
-          '....########....',
-          '...##########...',
-          '..############..',
-          '..############..',
-          '................'],
-    'R': ['................',
-          '................',
-          '...##..##..##...',
-          '...##..##..##...',
-          '...##########...',
-          '...##oooooo##...',
-          '....########....',
-          '.....######.....',
-          '.....######.....',
-          '.....######.....',
-          '.....######.....',
-          '....########....',
-          '...##########...',
-          '..############..',
-          '..############..',
-          '................'],
-    'B': ['.......##.......',
-          '......####......',
-          '.....####o#.....',
-          '.....###o##.....',
-          '....###o####....',
-          '....########....',
-          '.....######.....',
-          '......####......',
-          '.....oooooo.....',
-          '......####......',
-          '.....######.....',
-          '....########....',
-          '...##########...',
-          '..############..',
-          '..############..',
-          '................'],
-    'N': ['................',
-          '.......#.#......',
-          '......######....',
-          '.....########...',
-          '....##o#######..',
-          '...###########..',
-          '..############..',
-          '..####.#######..',
-          '...##..#######..',
-          '.......#######..',
-          '......#######...',
-          '.....########...',
-          '...##########...',
-          '..############..',
-          '..############..',
-          '................'],
-    'P': ['................',
-          '................',
-          '................',
-          '......####......',
-          '.....######.....',
-          '.....######.....',
-          '......####......',
-          '.....oooooo.....',
-          '......####......',
-          '......####......',
-          '.....######.....',
-          '....########....',
-          '...##########...',
-          '..############..',
-          '..############..',
-          '................'],
-}
-
-
-def render_pixel(spec, color, role):
-    fill, outline, detail = (_rgb(c) for c in spec['colors'][color])
-    grid = PIXEL[role]
-    # The 16-cell sprite on a 20-cell canvas: room for the outline, and the
-    # piece about as big as the other sets'.
-    n, ox, oy = 20, 2, 3
-    cells = Image.new('RGBA', (n, n), (0, 0, 0, 0))
-    pix = cells.load()
-    body = {(x + ox, y + oy): ch for y, row in enumerate(grid) for x, ch in enumerate(row) if ch in '#o'}
-    for y in range(n):
-        for x in range(n):
-            if (x, y) in body:
-                pix[x, y] = (*(detail if body[(x, y)] == 'o' else fill), 255)
-            elif any((x + dx, y + dy) in body for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
-                pix[x, y] = (*outline, 255)
-    return cells.resize((S, S), Image.NEAREST)
-
-
 # ---------------------------------------------------------------------------
 # Rendering
 
@@ -431,57 +255,11 @@ STYLES = {
                 colors={'w': ('#fbfbf8', '#1c1c1c', '#1c1c1c'), 'b': ('#2a2a2c', '#0b0b0b', '#e9e9e4')}),
     'ink': dict(make=ink, outline=0.016,
                 colors={'w': ('#ffffff', '#0e0e0e', '#0e0e0e'), 'b': ('#141414', '#000000', '#f4f4f4')}),
-    'bubble': dict(make=bubble, outline=0.02, shade='soft',
-                   colors={'w': ('#fbfbf6', '#2c2f36', '#2c2f36'), 'b': ('#3a3d45', '#14161a', '#f0f0ec')}),
-    'wood': dict(make=wood, outline=0.017, shade='wood',
-                 colors={'w': ('#ecd2a0', '#5b3c1c', '#5b3c1c'), 'b': ('#6b3f1d', '#2a1608', '#f0dcb4')}),
-    'glass': dict(make=glass, outline=0.012, shade='glass',
-                  colors={'w': ('#e9f4fb', '#4f6f86', '#4f6f86'), 'b': ('#2b3442', '#0d1117', '#c9d6e3')}),
-    'bold': dict(make=bold, outline=0.03,
-                 colors={'w': ('#ffffff', '#000000', '#000000'), 'b': ('#000000', '#000000', '#ffffff')}),
-    'eightbit': dict(pixel=True,
-                  colors={'w': ('#f6f6f2', '#111111', '#111111'), 'b': ('#23262d', '#050505', '#d8d8d4')}),
 }
-
-
-def _rgb(hex_color):
-    hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-
-
-def _mix(a, b, t):
-    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
-
-
-def _shaded_fill(fill, kind, color):
-    """A fill image for the shaded styles: light from the upper left."""
-    base = _rgb(fill)
-    small = 128
-    img = Image.new('RGB', (small, small))
-    pixels = img.load()
-    for y in range(small):
-        for x in range(small):
-            u, v = x / small, y / small
-            if kind == 'soft':
-                # Rounded, soft light: brighter left of centre, darker at the right edge.
-                t = max(0.0, min(1.0, (u - 0.28) * 1.3 + (v - 0.4) * 0.35))
-                pixels[x, y] = _mix(_mix(base, (255, 255, 255), 0.25), _mix(base, (0, 0, 0), 0.3), t)
-            elif kind == 'wood':
-                # Grain: soft stripes running down the piece, light from the left.
-                grain = 0.5 + 0.5 * math.sin(u * 46 + math.sin(v * 9) * 2.2)
-                light = max(0.0, min(1.0, (u - 0.3) * 1.2))
-                c = _mix(base, _mix(base, (0, 0, 0), 0.25), grain * 0.35)
-                pixels[x, y] = _mix(_mix(c, (255, 240, 210), 0.2), _mix(c, (0, 0, 0), 0.35), light)
-            elif kind == 'glass':
-                t = max(0.0, min(1.0, (u - 0.2) * 1.1))
-                pixels[x, y] = _mix(_mix(base, (255, 255, 255), 0.35), _mix(base, (0, 0, 0), 0.2), t)
-    return img.resize((S, S), Image.BICUBIC)
 
 
 def render(style, color, role):
     spec = STYLES[style]
-    if spec.get('pixel'):
-        return render_pixel(spec, color, role)
     body, details = spec['make'](role)
     fill, outline, detail = spec['colors'][color]
 
@@ -497,29 +275,7 @@ def render(style, color, role):
 
     out = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     out.paste(outline, (0, 0), grown)
-    shade = spec.get('shade')
-    if shade:
-        out.paste(_shaded_fill(fill, shade, color), (0, 0), mask)
-    else:
-        out.paste(fill, (0, 0), mask)
-
-    if shade == 'soft':
-        # A soft highlight near the top left.
-        gloss = Image.new('L', (S, S), 0)
-        ImageDraw.Draw(gloss).ellipse([px(0.3), px(0.12), px(0.5), px(0.42)], fill=90 if color == 'w' else 60)
-        gloss = gloss.filter(ImageFilter.GaussianBlur(px(0.05)))
-        out.paste('#ffffff', (0, 0), ImageChops.multiply(gloss, mask))
-    if shade == 'glass':
-        # See-through body with a bright rim and a long reflection.
-        alpha = out.getchannel('A')
-        body_alpha = mask.point(lambda v: v * (238 if color == 'w' else 240) // 255)
-        out.putalpha(ImageChops.lighter(ImageChops.subtract(alpha, mask), body_alpha))
-        streak = Image.new('L', (S, S), 0)
-        ImageDraw.Draw(streak).rounded_rectangle([px(0.36), px(0.1), px(0.43), px(0.8)], radius=px(0.03),
-                                                 fill=150 if color == 'w' else 110)
-        streak = ImageChops.multiply(streak.filter(ImageFilter.GaussianBlur(px(0.015))), mask)
-        out.paste('#ffffff', (0, 0), streak)
-        out.putalpha(ImageChops.lighter(out.getchannel('A'), streak))
+    out.paste(fill, (0, 0), mask)
 
     layer = Image.new('L', (S, S), 0)
     dl = ImageDraw.Draw(layer)
@@ -542,8 +298,7 @@ def main():
                 for folder, size in SIZES.items():
                     target = os.path.join(OUT, style, folder)
                     os.makedirs(target, exist_ok=True)
-                    resample = Image.NEAREST if STYLES[style].get('pixel') else Image.LANCZOS
-                    image.resize((size, size), resample).save(
+                    image.resize((size, size), Image.LANCZOS).save(
                         os.path.join(target, f'{color}{role}.webp'), lossless=True)
     if '--preview' in sys.argv:
         path = sys.argv[sys.argv.index('--preview') + 1]

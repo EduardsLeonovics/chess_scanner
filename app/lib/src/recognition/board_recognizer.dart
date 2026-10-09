@@ -27,11 +27,6 @@ const templateSets = [
   PieceSet.rhosgfx,
   PieceSet.geo,
   PieceSet.ink,
-  PieceSet.bubble,
-  PieceSet.wood,
-  PieceSet.glass,
-  PieceSet.bold,
-  PieceSet.eightbit,
 ];
 
 List<PieceTemplate>? _templates;

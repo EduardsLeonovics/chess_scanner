@@ -928,7 +928,17 @@ Uint8List _nearInk(Uint8List mask, Uint8List core, int w, int h) {
 _Blob? _pieceBlob(Uint8List mask, Uint8List core, int w, int h) {
   bool filled(_Blob blob) => blob.area >= (blob.right - blob.left + 1) * blob.height * 0.4;
   final inked = _Blob.largest(_nearInk(mask, core, w, h), w, h);
-  if (inked == null || filled(inked)) return inked;
+  if (inked == null) return null;
+  if (filled(inked)) {
+    // Some sets cut a piece in two with a thin light stripe (MPChess's
+    // rook): a short blob may be only part of it. Bridging small gaps
+    // shows the whole piece.
+    if (inked.height >= h * 0.45) return inked;
+    final gap = math.max(2, (w * 0.04).round());
+    final closed = _Blob.largest(_dilated(_nearInk(mask, core, w, h), w, h, gap), w, h);
+    final joined = closed == null ? null : _Blob.largest(closed.eroded(gap), w, h);
+    return joined != null && joined.height >= inked.height * 1.3 ? joined : inked;
+  }
   final raw = _Blob.largest(mask, w, h);
   if (raw != null && filled(raw)) return raw;
   final gap = math.max(2, (w * 0.05).round());
@@ -1161,9 +1171,6 @@ bool _makePlausible(List<_SquareReading> readings) {
       s.ranked.firstWhere((e) => e.$1 == role, orElse: () => (role, 0.0)).$2;
   final roleOf = <_SquareReading, Role>{for (final s in readings) s: s.ranked.first.$1};
   final groupRole = [for (final g in groups) roleOf[g.first]!];
-  final meanHeight = [
-    for (final g in groups) g.map((s) => s.relHeight).reduce((a, b) => a + b) / g.length,
-  ];
   void apply() {
     for (var i = 0; i < groups.length; i++) {
       for (final s in groups[i]) {
@@ -1181,12 +1188,14 @@ bool _makePlausible(List<_SquareReading> readings) {
     }
     final (bad, unusual) = _materialProblems(readings, (s) => roleOf[s]!);
     // In every set the king is at least as tall as the queen: that settles
-    // a near-tie between a king-like and a queen-like group.
+    // a near-tie between a king-like and a queen-like group. Each side's
+    // king is compared with its own queens only: in a photo, pieces nearer
+    // the camera look taller.
     var shorterKing = 0.0;
-    for (var i = 0; i < groups.length; i++) {
-      if (groupRole[i] != Role.king) continue;
-      for (var j = 0; j < groups.length; j++) {
-        if (groupRole[j] == Role.queen && meanHeight[j] > meanHeight[i] + 0.005) shorterKing += 0.2;
+    for (final s in readings) {
+      if (roleOf[s] != Role.king) continue;
+      for (final o in readings) {
+        if (o.color == s.color && roleOf[o] == Role.queen && o.relHeight > s.relHeight + 0.005) shorterKing += 0.2;
       }
     }
     return total - 10 * bad - unusual - shorterKing;
