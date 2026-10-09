@@ -1,7 +1,7 @@
 # Piece set and board image licences
 
 This is a vendored copy of [chessground](https://github.com/lichess-org/flutter-chessground)
-10.3.0 (GPL-3.0). So that ChessHive may be used commercially, every piece set licensed for
+10.3.0 (GPL-3.0). ChessHive shows ads, so every piece set licensed for
 non-commercial use only, or with no clear licence, has been removed (alpha,
 anarcandy, california, caliente, cardinal, chess7, cooke, companion, disguised,
 dubrovny, fresca, gioco, governor, horsey, icpieces, kosal, leipzig, maestro,

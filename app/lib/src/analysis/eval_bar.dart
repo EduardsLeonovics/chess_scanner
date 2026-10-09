@@ -1,23 +1,20 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../engine/uci.dart';
 
-/// Vertical White/Black bar like chess.com's, White at the bottom unless
-/// [flipped]. The score is written at the end of the side that's better.
+/// Horizontal White/Black bar, White on the left unless [flipped] (Black
+/// at the bottom of the board). The score is written at the end of the
+/// side that's better.
 class EvalBar extends StatelessWidget {
   const EvalBar({
     super.key,
     required this.line,
-    required this.height,
-    this.width = 26,
+    this.height = 18,
     this.flipped = false,
   });
 
   final PvLine? line;
   final double height;
-  final double width;
   final bool flipped;
 
   static const _white = Color(0xFFF0F0F0);
@@ -25,45 +22,47 @@ class EvalBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Layout can briefly offer no room at all; never pass a negative size on.
-    final height = math.max(0.0, this.height);
     final line = this.line;
     final whiteBetter = line == null || (line.mate ?? line.cp!) >= 0;
-    // White's end is at the bottom unless flipped.
-    final labelAtBottom = whiteBetter != flipped;
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        children: [
-          TweenAnimationBuilder<double>(
-            tween: Tween(end: line?.whiteShare ?? 0.5),
-            duration: const Duration(milliseconds: 300),
-            builder: (context, share, _) {
-              final white = Container(height: height * share, color: _white);
-              final black = Container(height: height * (1 - share), color: _black);
-              return Column(children: flipped ? [white, black] : [black, white]);
-            },
-          ),
-          if (line != null && height > 40)
-            Positioned(
-              left: 1,
-              right: 1,
-              top: labelAtBottom ? null : 3,
-              bottom: labelAtBottom ? 3 : null,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  evalBarLabel(line),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: whiteBetter ? _black : _white,
+    // White's end is on the left unless flipped.
+    final labelOnLeft = whiteBetter != flipped;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(end: line?.whiteShare ?? 0.5),
+              duration: const Duration(milliseconds: 300),
+              builder: (context, share, _) {
+                // Flex can't be 0: a mate leaves a sliver of the loser's colour.
+                final whiteFlex = (share * 1000).round().clamp(1, 999);
+                final white = Expanded(flex: whiteFlex, child: const ColoredBox(color: _white));
+                final black = Expanded(flex: 1000 - whiteFlex, child: const ColoredBox(color: _black));
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: flipped ? [black, white] : [white, black],
+                );
+              },
+            ),
+            if (line != null)
+              Align(
+                alignment: labelOnLeft ? Alignment.centerLeft : Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    evalBarLabel(line),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: whiteBetter ? _black : _white,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

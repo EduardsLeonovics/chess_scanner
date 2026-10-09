@@ -48,6 +48,7 @@
       <tr><td>Your settings, and the games waiting to be analyzed</td><td>Always</td><td>Nowhere: stored on your phone</td></tr>
       <tr><td>Connected usernames, and the analysis of your games (puzzles, progress, skill stats, openings)</td><td>When you connect Lichess / Chess.com (needs a ChessHive account)</td><td>Our server (Supabase), as a backup in your account</td></tr>
       <tr><td>Lichess / Chess.com username you connect</td><td>Loading your games</td><td>Lichess or Chess.com, to download your public games</td></tr>
+      <tr><td>Advertising data</td><td>While ads show</td><td>Google AdMob (personalised only with your consent)</td></tr>
       <tr><td>Anonymous usage totals</td><td>Only if you allow it</td><td>Our server, as daily counts with no identifiers</td></tr>
       <tr><td>Crash reports</td><td>Only when you tap “Send”</td><td>Our server</td></tr>
       <tr><td>Email, username, posts, comments, profile picture</td><td>Only if you create a ChessHive account</td><td>Our server (Supabase)</td></tr>
@@ -67,11 +68,12 @@
   <h3>Loading your games from Lichess or Chess.com</h3>
   <p>When you connect an account by username, the app asks Lichess (lichess.org) or Chess.com for that player's public games. Your phone sends the username to them directly, along with your IP address as any internet request does; we don't receive it. Their own privacy policies apply. ChessHive is not affiliated with Lichess or Chess.com.</p>
 
-  <h3>No ads, no tracking</h3>
-  <p>ChessHive shows no ads and contains no advertising or tracking software.</p>
+  <h3>Advertising</h3>
+  <p>ChessHive is free and shows ads through Google AdMob. Google receives information such as your device's advertising ID, IP address, approximate location derived from it, device and app information, and how you interact with ads. In the EEA, the UK and Switzerland, a consent message from Google appears when you first open the app. If you agree, ads may be personalised; if you don't, Google shows limited or non-personalised ads. Google acts as an independent controller of this data: see <a href="https://policies.google.com/technologies/partner-sites">how Google uses information from apps that use its services</a>. You can change your choice at any time in Settings → Privacy → Privacy choices, and reset your advertising ID in your phone's settings.</p>
+  <p><em>Legal basis:</em> your consent for personalised ads and for storing information on your device (GDPR Art. 6(1)(a), ePrivacy Directive Art. 5(3)); our legitimate interest in funding a free app for limited ads.</p>
 
   <h3>Anonymous usage statistics</h3>
-  <p>To learn which features are used, the app counts a few actions (app opened, a scan read or failed, a puzzle solved or failed, a game analyzed, an opening studied, a post or comment made, a position shared) and sends <strong>only daily totals</strong> per action, platform and app version, for example “Android, version 1.0.1: 412 puzzles solved”. No account, device ID, advertising ID, location, position or text is included, and our server does not store the address a request came from. This only happens if you turn on “Share anonymous usage statistics” in Settings → Privacy. It is off until you do, and you can turn it off again at any time.</p>
+  <p>To learn which features are used, the app counts a few actions (app opened, a scan read or failed, a puzzle solved or failed, a game analyzed, an opening studied, a post or comment made, a position shared) and sends <strong>only daily totals</strong> per action, platform and app version, for example “Android, version 1.0.1: 412 puzzles solved”. No account, device ID, advertising ID, location, position or text is included, and our server does not store the address a request came from. This only happens if you allowed measurement in the consent message (where one is shown); you can switch it off at any time in Settings → Privacy.</p>
   <p><em>Legal basis:</em> your consent.</p>
 
   <h3>Crash reports</h3>
@@ -93,6 +95,7 @@
   <h2 id="recipients">Who receives data</h2>
   <ul>
     <li><strong>Supabase</strong> hosts our server (database, accounts, profile pictures, account emails) as our processor under a data processing agreement. Our project is hosted in the EU (Ireland).</li>
+    <li><strong>Google</strong> (AdMob and its consent message), as described above.</li>
     <li><strong>Cloudflare</strong> hosts this website and forwards email sent to support@chesshive.app, as our processor.</li>
     <li><strong>Lichess and Chess.com</strong>, only for the usernames you connect, as described above.</li>
     <li><strong>Resend</strong> delivers account emails (sign-up confirmation, password reset) as our processor.</li>

@@ -25,6 +25,7 @@ void main() {
       whitePieces: Color(0xFFFFE0B2),
       blackPieces: Color(0xFF1E2A38),
       showBestMoveArrow: false,
+      showEvalBar: false,
       blackOutline: Color(0xFFFF0000),
     );
     await custom.saveTo(prefs);

@@ -297,12 +297,25 @@ class SettingsPage extends ConsumerWidget {
               _Section(
                 icon: Icons.north_east,
                 title: 'Analysis board',
-                child: CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Show best move arrow', style: TextStyle(color: _ink)),
-                  subtitle: const Text('The green arrow for Stockfish\'s top move'),
-                  value: appearance.showBestMoveArrow,
-                  onChanged: (on) => notifier.setShowBestMoveArrow(on ?? true),
+                child: Column(
+                  children: [
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show best move arrow', style: TextStyle(color: _ink)),
+                      subtitle: const Text('The green arrow for Stockfish\'s top move'),
+                      value: appearance.showBestMoveArrow,
+                      onChanged: (on) => notifier.setShowBestMoveArrow(on ?? true),
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show evaluation bar', style: TextStyle(color: _ink)),
+                      subtitle: const Text(
+                        'The bar above the moves showing who is better (also hidden with its eye icon)',
+                      ),
+                      value: appearance.showEvalBar,
+                      onChanged: (on) => notifier.setShowEvalBar(on ?? true),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),

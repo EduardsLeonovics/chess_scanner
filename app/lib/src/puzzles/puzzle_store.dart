@@ -472,6 +472,20 @@ class GeneratorState {
 final puzzleGeneratorProvider =
     NotifierProvider<PuzzleGenerator, GeneratorState>(PuzzleGenerator.new);
 
+/// The user hid the analysis note (see `GeneratorBanner`); it stays hidden,
+/// including how the run ended, until the next run starts.
+final generatorBannerHiddenProvider =
+    NotifierProvider<GeneratorBannerHidden, bool>(GeneratorBannerHidden.new);
+
+class GeneratorBannerHidden extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void hide() => state = true;
+
+  void show() => state = false;
+}
+
 /// Downloads the user's not-yet-analyzed games and searches them for puzzles.
 ///
 /// The downloaded games are saved as a [GameQueue] first and taken off it
@@ -505,6 +519,7 @@ class PuzzleGenerator extends Notifier<GeneratorState> {
   Future<void> run() async {
     if (state.running) return;
     _cancelled = false;
+    ref.read(generatorBannerHiddenProvider.notifier).show();
     state = const GeneratorState(running: true, message: 'Downloading your games…');
     try {
       await _run();

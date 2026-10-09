@@ -22,6 +22,13 @@ Raise these with the user until each is done, then delete its line:
   and passwords up off this PC, enrol in Play App Signing, and add Play's
   app signing key SHA-256 (Play Console → App integrity) to assetlinks.json
   next to the upload key's.
+- **AdMob ids:** the app uses Google's test ids (AndroidManifest.xml,
+  ios/Runner/Info.plist, `AdsConfig` in `app/lib/src/ads/ad_banner.dart`).
+  Create the AdMob app and banner units and swap them in before release.
+- **AdMob consent message:** in AdMob → Privacy & messaging, create the
+  European regulations message (and the US states one) and enable "ask for
+  consent for your own use" with TCF purposes 1, 8 and 9 — the app's usage
+  statistics read those (`app/lib/src/privacy/consent.dart`).
 - **Production email:** Supabase's built-in mailer only sends a few
   emails an hour. Set up Resend as custom SMTP in Supabase for
   chesshive.app (sender noreply@chesshive.app), check the reset-password
@@ -99,14 +106,16 @@ Chess.com games.
   its fixed tables (32 NNUE pieces, 128 threats, 256 moves) overflow and
   crash the app. The analysis board says why instead. The vendored
   Stockfish's `position` command also refuses them (patch in `uci.cpp`).
-- Piece sets: only sets licensed for commercial use.
+- Piece sets: only sets licensed for commercial use (the app shows ads).
   chessground is vendored in `app/third_party/chessground` with the rest
   removed; licences in its LICENSES.md. Geo, Ink and Bubble are our own,
   drawn by `app/tool/make_piece_sets.py`.
-- No ads and no tracking SDKs. Usage statistics
-  (`privacy/usage_stats.dart`) are anonymous daily totals, sent only after
-  the user turns them on in Settings → Privacy (off by default); never add
-  user/device ids, location or content to them.
+- Ads and privacy: Google's consent message (UMP) runs at launch
+  (`privacy/consent.dart`); ads load only after it allows. Banners only on
+  read-only pages (Skills, Openings), never next to a board. Usage
+  statistics (`privacy/usage_stats.dart`) are anonymous daily totals,
+  sent only with consent; never add user/device ids, location or content
+  to them.
 - Community safety: reports have categories (keep `ReportCategory` and the
   `reports_category_check` in schema.sql in sync — a test checks it);
   blocking works both ways on the server (`blocked_between`).

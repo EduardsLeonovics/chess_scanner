@@ -60,6 +60,7 @@ class Appearance {
     this.blackPieces = defaultBlackPieces,
     this.moveSounds = true,
     this.showBestMoveArrow = true,
+    this.showEvalBar = true,
     this.whiteOutline,
     this.blackOutline,
     this.background = defaultBackground,
@@ -101,6 +102,10 @@ class Appearance {
   /// Draw the engine's best move as an arrow on the analysis board.
   final bool showBestMoveArrow;
 
+  /// Show the evaluation bar under the analysis board (its eye icon
+  /// switches this too).
+  final bool showEvalBar;
+
   /// A ring drawn around the white / black pieces. Null: the default (none,
   /// or white for black pieces on the [blackWhiteThemeId] board);
   /// [noOutline]: none, even there.
@@ -137,6 +142,7 @@ class Appearance {
     Color? blackPieces,
     bool? moveSounds,
     bool? showBestMoveArrow,
+    bool? showEvalBar,
     Color? Function()? whiteOutline,
     Color? Function()? blackOutline,
     Color? background,
@@ -150,6 +156,7 @@ class Appearance {
       blackPieces: blackPieces ?? this.blackPieces,
       moveSounds: moveSounds ?? this.moveSounds,
       showBestMoveArrow: showBestMoveArrow ?? this.showBestMoveArrow,
+      showEvalBar: showEvalBar ?? this.showEvalBar,
       whiteOutline: whiteOutline == null ? this.whiteOutline : whiteOutline(),
       blackOutline: blackOutline == null ? this.blackOutline : blackOutline(),
       background: background ?? this.background,
@@ -164,6 +171,7 @@ class Appearance {
   static const _blackPiecesKey = 'appearance.blackPieces';
   static const _moveSoundsKey = 'appearance.moveSounds';
   static const _bestMoveArrowKey = 'appearance.bestMoveArrow';
+  static const _evalBarKey = 'appearance.evalBar';
   static const _whiteOutlineKey = 'appearance.whiteOutline';
   static const _blackOutlineKey = 'appearance.blackOutline';
   static const _backgroundKey = 'appearance.background';
@@ -188,6 +196,7 @@ class Appearance {
       blackPieces: color(_blackPiecesKey) ?? defaults.blackPieces,
       moveSounds: prefs.getBool(_moveSoundsKey) ?? defaults.moveSounds,
       showBestMoveArrow: prefs.getBool(_bestMoveArrowKey) ?? defaults.showBestMoveArrow,
+      showEvalBar: prefs.getBool(_evalBarKey) ?? defaults.showEvalBar,
       whiteOutline: color(_whiteOutlineKey),
       blackOutline: color(_blackOutlineKey),
       background: color(_backgroundKey) ?? defaults.background,
@@ -203,6 +212,7 @@ class Appearance {
     await prefs.setInt(_blackPiecesKey, blackPieces.toARGB32());
     await prefs.setBool(_moveSoundsKey, moveSounds);
     await prefs.setBool(_bestMoveArrowKey, showBestMoveArrow);
+    await prefs.setBool(_evalBarKey, showEvalBar);
     await prefs.setInt(_backgroundKey, background.toARGB32());
     for (final (key, color) in [(_whiteOutlineKey, whiteOutline), (_blackOutlineKey, blackOutline)]) {
       if (color == null) {
@@ -224,6 +234,7 @@ class Appearance {
       other.blackPieces == blackPieces &&
       other.moveSounds == moveSounds &&
       other.showBestMoveArrow == showBestMoveArrow &&
+      other.showEvalBar == showEvalBar &&
       other.whiteOutline == whiteOutline &&
       other.blackOutline == blackOutline &&
       other.background == background;
@@ -239,6 +250,7 @@ class Appearance {
         blackPieces,
         moveSounds,
         showBestMoveArrow,
+        showEvalBar,
         whiteOutline,
         blackOutline,
         background,
@@ -298,6 +310,8 @@ class AppearanceNotifier extends Notifier<Appearance> {
   void setMoveSounds(bool on) => _update(state.copyWith(moveSounds: on));
 
   void setShowBestMoveArrow(bool on) => _update(state.copyWith(showBestMoveArrow: on));
+
+  void setShowEvalBar(bool on) => _update(state.copyWith(showEvalBar: on));
 
   /// [Appearance.noOutline] turns an outline off; null restores the default.
   void setWhiteOutline(Color? color) => _update(state.copyWith(whiteOutline: () => color));

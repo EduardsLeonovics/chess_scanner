@@ -7,6 +7,7 @@ import '../analysis/analysis_page.dart';
 import '../backup/library_backup.dart';
 import '../community/community_page.dart';
 import '../diagnostics/crash_log.dart';
+import '../privacy/consent.dart';
 import '../privacy/usage_stats.dart';
 import '../openings/openings_page.dart';
 import '../puzzles/puzzle_store.dart';
@@ -70,7 +71,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       // Android ends the app while it's in the background.
       ref.read(puzzleLibraryProvider.notifier).flush();
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Consent first (it may show Google's message), then the rest.
+      await ref.read(privacyProvider.notifier).start();
       if (!mounted) return;
       ref.read(usageStatsProvider)
         ..track(UsageEvent.appOpen)

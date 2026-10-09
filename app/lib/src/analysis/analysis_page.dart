@@ -295,11 +295,14 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
     _analyze();
   }
 
+  /// Puts the selected piece on [square]; with the eraser selected, or
+  /// tapping the same piece again, removes what's there.
   void _editSquare(Square square) {
     final brush = _brush;
     setState(() {
+      final same = _editPieces[square] == brush;
       _editPieces = {..._editPieces}..remove(square);
-      if (brush != null) _editPieces[square] = brush;
+      if (brush != null && !same) _editPieces[square] = brush;
     });
   }
 
@@ -373,25 +376,15 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                const barWidth = 26.0;
                 final boardSize = math.max(
                   0.0,
-                  math.min(
-                    constraints.maxWidth - barWidth,
-                    constraints.maxHeight * 0.62,
-                  ),
+                  math.min(constraints.maxWidth, constraints.maxHeight * 0.62),
                 );
                 return Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        EvalBar(
-                          line: best,
-                          height: boardSize,
-                          width: barWidth,
-                          flipped: _orientation == Side.black,
-                        ),
                         if (_editing)
                           ChessboardEditor(
                             size: boardSize,
@@ -438,6 +431,13 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
                       onShare: _share,
                       onRotate: _rotate,
                     ),
+                    if (!_editing)
+                      _EvalStrip(
+                        line: best,
+                        flipped: _orientation == Side.black,
+                        shown: appearance.showEvalBar,
+                        onShown: ref.read(appearanceProvider.notifier).setShowEvalBar,
+                      ),
                     if (!_editing && _history.length > 1)
                       _MoveNavigation(
                         cursor: _cursor,
@@ -452,8 +452,8 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
                               child: Padding(
                                 padding: EdgeInsets.all(16),
                                 child: Text(
-                                  'Pick a piece, then tap squares to place it. '
-                                  'Tap ✓ to analyze.',
+                                  'Pick a piece, then tap squares to place it. To remove a '
+                                  'piece, pick the eraser and tap it. Tap ✓ to analyze.',
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -736,6 +736,41 @@ class _BoardControls extends StatelessWidget {
   }
 }
 
+/// The evaluation bar above the move history, with an eye to hide it.
+/// Hidden, only the eye stays, to bring it back.
+class _EvalStrip extends StatelessWidget {
+  const _EvalStrip({
+    required this.line,
+    required this.flipped,
+    required this.shown,
+    required this.onShown,
+  });
+
+  final PvLine? line;
+  final bool flipped;
+  final bool shown;
+  final ValueChanged<bool> onShown;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 4),
+      child: Row(
+        children: [
+          Expanded(child: shown ? EvalBar(line: line, flipped: flipped) : const SizedBox.shrink()),
+          IconButton(
+            tooltip: shown ? 'Hide evaluation bar' : 'Show evaluation bar',
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(shown ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+            onPressed: () => onShown(!shown),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// First / back / forward / last through the move history, with the move
 /// just played.
 class _MoveNavigation extends StatelessWidget {
@@ -952,9 +987,9 @@ class _PiecePalette extends StatelessWidget {
             side == Side.white
                 ? cell(
                     isSelected: selected == null,
-                    tooltip: 'Erase',
+                    tooltip: 'Eraser: tap a piece to remove it',
                     onTap: () => onSelect(null),
-                    child: const Icon(Icons.backspace_outlined),
+                    child: CustomPaint(painter: _EraserPainter(scheme.onSurface)),
                   )
                 : cell(
                     isSelected: false,
@@ -970,4 +1005,38 @@ class _PiecePalette extends StatelessWidget {
       child: Column(children: [pieceRow(Side.white), pieceRow(Side.black)]),
     );
   }
+}
+
+/// An eraser, drawn because Material Icons has none: a tilted block with
+/// a filled tip.
+class _EraserPainter extends CustomPainter {
+  const _EraserPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    canvas.translate(size.width / 2, size.height / 2);
+    canvas.rotate(-math.pi / 4);
+    final body = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset.zero, width: s * 0.78, height: s * 0.4),
+      Radius.circular(s * 0.06),
+    );
+    final tip = Rect.fromLTRB(-s * 0.39, -s * 0.2, -s * 0.08, s * 0.2);
+    canvas.save();
+    canvas.clipRRect(body);
+    canvas.drawRect(tip, Paint()..color = color);
+    canvas.restore();
+    canvas.drawRRect(
+      body,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s * 0.07,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_EraserPainter old) => old.color != color;
 }

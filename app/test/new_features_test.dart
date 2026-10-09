@@ -30,7 +30,7 @@ void main() {
     });
 
     testWidgets('shows the number on the bar', (tester) async {
-      await tester.pumpWidget(MaterialApp(home: EvalBar(line: cp(500), height: 300)));
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: EvalBar(line: cp(500)))));
       expect(find.text('+5.0'), findsOneWidget);
     });
   });
