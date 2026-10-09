@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'src/app_info.dart';
 import 'src/community/community_config.dart';
 import 'src/diagnostics/crash_log.dart';
+import 'src/diagnostics/frame_log.dart';
 import 'src/home/home_shell.dart';
 import 'src/puzzles/background_work.dart';
 import 'src/settings/appearance.dart';
@@ -18,6 +19,7 @@ Future<void> main() async {
   // Errors that escape everything else (async gaps) land in this zone.
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    FrameLog.install();
     final prefs = await SharedPreferences.getInstance();
     crashLog = CrashLog(prefs)..install();
     BackgroundWork.init();

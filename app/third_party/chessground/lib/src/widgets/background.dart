@@ -140,7 +140,7 @@ class ImageChessboardBackground extends ChessboardBackground {
         alignment: Alignment.topLeft,
         clipBehavior: Clip.none,
         children: [
-          Image(image: image, fit: BoxFit.cover),
+          _SizedImage(image: image),
           CustomPaint(
             size: Size.infinite,
             painter: _ImageBackgroundCoordinatePainter(
@@ -152,8 +152,33 @@ class ImageChessboardBackground extends ChessboardBackground {
         ],
       );
     } else {
-      return Image(image: image, fit: BoxFit.cover);
+      return _SizedImage(image: image);
     }
+  }
+}
+
+/// The board image decoded at the size it's shown (ChessHive change): the
+/// textures are 1024 px, and drawing them full size for every small board
+/// (e.g. the theme thumbnails in settings) made scrolling stutter.
+class _SizedImage extends StatelessWidget {
+  const _SizedImage({required this.image});
+
+  final AssetImage image;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = constraints.biggest.shortestSide;
+        if (!side.isFinite || side <= 0) return Image(image: image, fit: BoxFit.cover);
+        final px = (side * MediaQuery.devicePixelRatioOf(context)).ceil();
+        return Image(
+          image: ResizeImage(image, width: px, height: px, policy: ResizeImagePolicy.fit),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
+      },
+    );
   }
 }
 

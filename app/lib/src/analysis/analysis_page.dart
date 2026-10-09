@@ -63,6 +63,13 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
   late final ChessboardController _controller;
   StreamSubscription<EngineEval>? _evalSub;
 
+  /// Stockfish reports many times a second; the page shows the latest
+  /// report at most every [_evalInterval], so the board isn't rebuilt for
+  /// each one.
+  EngineEval? _pendingEval;
+  Timer? _evalTimer;
+  static const _evalInterval = Duration(milliseconds: 120);
+
   late List<_Ply> _history;
   int _cursor = 0;
   Side _orientation = Side.white;
@@ -78,8 +85,9 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
 
   bool _recognizing = false;
 
-  /// False while another tab is showing; the engine is then left free for
-  /// background work such as puzzle generation.
+  /// False while another tab or a full-screen page (e.g. Settings) is
+  /// showing; the engine is then left free for background work such as
+  /// puzzle generation, and doesn't slow the page on top.
   bool _visible = true;
 
   /// False while the app is in the background (home screen, screen off).
@@ -107,7 +115,9 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
     _engine = ref.read(engineProvider);
     WidgetsBinding.instance.addObserver(this);
     _evalSub = _engine.evals.listen((eval) {
-      if (eval.fen == _pos.fen) setState(() => _eval = eval);
+      if (eval.fen != _pos.fen) return;
+      _pendingEval = eval;
+      _evalTimer ??= Timer(_evalInterval, _showPendingEval);
     });
     _analyze();
     // A link that arrived before this page was built.
@@ -115,6 +125,13 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
     if (pending != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _openLinked(pending));
     }
+  }
+
+  void _showPendingEval() {
+    _evalTimer = null;
+    final eval = _pendingEval;
+    _pendingEval = null;
+    if (eval != null && mounted && eval.fen == _pos.fen) setState(() => _eval = eval);
   }
 
   void _openLinked(Position position) {
@@ -139,7 +156,8 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final visible = Visibility.of(context);
+    // TickerMode is off while a full-screen route covers this one.
+    final visible = Visibility.of(context) && TickerMode.valuesOf(context).enabled;
     if (visible == _visible) return;
     _visible = visible;
     if (_editing) return;
@@ -166,6 +184,7 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _evalSub?.cancel();
+    _evalTimer?.cancel();
     _engine.stop();
     _controller.dispose();
     super.dispose();
@@ -382,35 +401,40 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
                 );
                 return Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_editing)
-                          ChessboardEditor(
-                            size: boardSize,
-                            orientation: _orientation,
-                            pieces: _editPieces,
-                            pointerMode: EditorPointerMode.edit,
-                            settings: boardSettings,
-                            onEditedSquare: _editSquare,
-                          )
-                        else
-                          Chessboard(
-                            size: boardSize,
-                            controller: _controller,
-                            orientation: _orientation,
-                            settings: boardSettings,
-                            onMove: (move, {viaDragAndDrop}) => _play(move),
-                            shapes: {
-                              if (bestMove is NormalMove && appearance.showBestMoveArrow)
-                                Arrow(
-                                  color: const Color(0xAA15781B),
-                                  orig: bestMove.from,
-                                  dest: bestMove.to,
-                                ),
-                            },
-                          ),
-                      ],
+                    // Separate layers for the board, the eval bar (animated on
+                    // each engine update) and the engine lines, so one
+                    // changing doesn't make the others repaint.
+                    RepaintBoundary(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_editing)
+                            ChessboardEditor(
+                              size: boardSize,
+                              orientation: _orientation,
+                              pieces: _editPieces,
+                              pointerMode: EditorPointerMode.edit,
+                              settings: boardSettings,
+                              onEditedSquare: _editSquare,
+                            )
+                          else
+                            Chessboard(
+                              size: boardSize,
+                              controller: _controller,
+                              orientation: _orientation,
+                              settings: boardSettings,
+                              onMove: (move, {viaDragAndDrop}) => _play(move),
+                              shapes: {
+                                if (bestMove is NormalMove && appearance.showBestMoveArrow)
+                                  Arrow(
+                                    color: const Color(0xAA15781B),
+                                    orig: bestMove.from,
+                                    dest: bestMove.to,
+                                  ),
+                              },
+                            ),
+                        ],
+                      ),
                     ),
                     if (_editing)
                       _PiecePalette(
@@ -432,11 +456,13 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
                       onRotate: _rotate,
                     ),
                     if (!_editing)
-                      _EvalStrip(
-                        line: best,
-                        flipped: _orientation == Side.black,
-                        shown: appearance.showEvalBar,
-                        onShown: ref.read(appearanceProvider.notifier).setShowEvalBar,
+                      RepaintBoundary(
+                        child: _EvalStrip(
+                          line: best,
+                          flipped: _orientation == Side.black,
+                          shown: appearance.showEvalBar,
+                          onShown: ref.read(appearanceProvider.notifier).setShowEvalBar,
+                        ),
                       ),
                     if (!_editing && _history.length > 1)
                       _MoveNavigation(
@@ -447,18 +473,20 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage> with WidgetsBinding
                       ),
                     const Divider(height: 1),
                     Expanded(
-                      child: _editing
-                          ? const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                  'Pick a piece, then tap squares to place it. To remove a '
-                                  'piece, pick the eraser and tap it. Tap ✓ to analyze.',
-                                  textAlign: TextAlign.center,
+                      child: RepaintBoundary(
+                        child: _editing
+                            ? const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                    'Pick a piece, then tap squares to place it. To remove a '
+                                    'piece, pick the eraser and tap it. Tap ✓ to analyze.',
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
-                              ),
-                            )
-                          : _buildEnginePanel(),
+                              )
+                            : _buildEnginePanel(),
+                      ),
                     ),
                   ],
                 );
@@ -685,7 +713,7 @@ class _BoardControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
+      padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
       child: Row(
         children: [
           if (!editing)
@@ -761,7 +789,12 @@ class _EvalStrip extends StatelessWidget {
           IconButton(
             tooltip: shown ? 'Hide evaluation bar' : 'Show evaluation bar',
             iconSize: 18,
-            visualDensity: VisualDensity.compact,
+            // Short, so the bar sits close under the controls above it.
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(40, 30),
+              padding: EdgeInsets.zero,
+            ),
             icon: Icon(shown ? Icons.visibility_outlined : Icons.visibility_off_outlined),
             onPressed: () => onShown(!shown),
           ),

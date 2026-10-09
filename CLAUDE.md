@@ -91,7 +91,9 @@ Chess.com games.
   second activity) starting another one crashes the app. Keep
   `launchMode="singleTask"` in the manifest for that reason.
 - Live analysis runs until stopped, so the Scan tab stops it when hidden
-  (tab switch via `Visibility.of`, app backgrounded via lifecycle). Nothing
+  (tab switch via `Visibility.of`, a full-screen page on top via
+  `TickerMode`, app backgrounded via lifecycle). Its updates reach the
+  page at most every 120 ms (`_evalInterval`). Nothing
   else may leave Stockfish running in the background except the puzzle
   finder, which shows a notification and only runs when the user starts it
   (an interrupted run is offered as "Continue" at launch, never resumed
@@ -143,6 +145,11 @@ Chess.com games.
   `Run Chess Scanner.bat` in the repo root for the Pixel_8 emulator)
 - `flutter test`
 - `flutter analyze` — must be clean before committing
+- Smoothness: judge it only in profile/release builds (`flutter run` is a
+  debug build and stutters by design). Frame times: `flutter build apk
+  --profile --target-platform android-x64 --dart-define=FRAME_LOG=true`
+  (any `--target-platform` for a phone), install, then `adb logcat -s
+  flutter | grep FRAMES` (`diagnostics/frame_log.dart`).
 - `flutter build apk --release --split-per-abi` — phone APK is
   `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`. Without
   `android/key.properties` it's signed with the debug key (fine for
